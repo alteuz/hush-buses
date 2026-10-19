@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hush · Reescribe las reglas del campo de batalla</title>
+  <meta name="description" content="Hush: disponibilidad de parqueaderos, ubicación de buses y puestos por bus para una empresa de transporte intermunicipal en Cundinamarca. PostGIS + OpenStreetMap + Cordova.">
+  <meta name="theme-color" content="#0E0A12">
+  <link rel="icon" type="image/webp" href="assets/media/hush-icon.webp">
+  <link rel="apple-touch-icon" href="assets/media/hush-icon.webp">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <style>
+    /* =====================================================================
+       Tokens
+       ===================================================================== */
+    :root {
+      --cream: #FBEFF7;
+      --white: #F9F9F9;
+      --ink: rgba(255, 255, 255, .88);
+      --muted: rgba(251, 239, 247, .56);
+      --faint: rgba(251, 239, 247, .3);
+      --line: rgba(251, 239, 247, .09);
+      --line-2: rgba(251, 239, 247, .16);
+      --accent: #FF2D9B;
+      --accent-2: #F7A8E0;
+      --ok: #36D6B0;
+      --mid: #E9B44C;
+      --info: #B98CF0;
+      --bg: #0E0A12;
+      --bg-2: #1A1220;
+      --panel: #19121F;
+      --display: 'Oswald', 'Bebas Neue', Impact, system-ui, sans-serif;
+      --ui: 'Barlow Condensed', 'Oswald', system-ui, sans-serif;
+      --body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --s: 1;        /* stage scale, set by JS: min(vh / 800, vw / 716) */
+      --cover: 1;    /* max(vw / 1280, vh / 800) */
+      --wrap: 1240px;
+      --gut: clamp(16px, 4vw, 40px);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 400 16px/1.55 var(--body);
+      font-kerning: none;
+      font-variant-ligatures: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
+      overflow-x: hidden;
+    }
+    a { color: inherit; }
+    img, svg, video { display: block; }
+    ::selection { background: var(--accent); color: #fff; }
+
+    /* =====================================================================
+       HERO — aerial intercity bus, type composed on the road's center axis
+       ===================================================================== */
+    .frame { position: relative; height: 100vh; height: 100svh; overflow: hidden; background: #0E0A12; }
+    .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; background: #0E0A12; }
+    .tint {
+      position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(to bottom,
+        rgba(0,0,0,.42) 0%, rgba(0,0,0,.30) 11%, rgba(0,0,0,.22) 20%, rgba(0,0,0,.16) 29%,
+        rgba(0,0,0,.08) 37.5%, rgba(0,0,0,.10) 46%, rgba(0,0,0,.16) 55%, rgba(0,0,0,.24) 64%,
+        rgba(0,0,0,.32) 73%, rgba(0,0,0,.42) 81%, rgba(0,0,0,.52) 90%, rgba(10,11,12,1) 100%);
+    }
+    /* Hush colour grade over the footage: magenta → lavender */
+    .tint::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(160deg, rgba(255,45,155,.55) 0%, rgba(185,140,240,.35) 45%, rgba(255,45,155,.45) 100%);
+      mix-blend-mode: soft-light;
+    }
+    .stage {
+      position: absolute; left: 50%; top: 50%;
+      width: 1280px; height: 800px; margin: -400px 0 0 -640px;
+      transform: scale(var(--s)); transform-origin: 50% 50%;
+    }
+    .eyebrow {
+      position: absolute; left: 0; top: 67.8px; width: 1280px; margin: 0;
+      font: 700 7.4px/7.4px var(--ui); word-spacing: .522px; text-align: center; text-transform: uppercase;
+      color: var(--cream); text-shadow: 0 1px 3px rgba(0,0,0,.45);
+      letter-spacing: 2.252px; text-indent: 2.252px;
+    }
+    .eyebrow span { position: relative; display: block; left: -.9px; }
+    .headline {
+      position: absolute; left: 0; top: 0; width: 1280px; margin: 0;
+      font: 700 61.74px/61.74px var(--display); word-spacing: 2.691px; text-align: center; text-transform: uppercase;
+      color: var(--cream); text-shadow: 0 15px 36px rgba(0,0,0,.5);
+    }
+    .headline span { position: absolute; left: 0; width: 1280px; display: block; white-space: nowrap; letter-spacing: -.4px; text-indent: -.4px; }
+    .headline .hl1 { top: 83.62px; }
+    .headline .hl2 { top: 137.02px; }
+    .headline .hl3 { top: 190.42px; }
+    .headline .hl4 { top: 247.92px; color: var(--accent); }
+    .mark { position: absolute; left: 614px; top: 493.6px; width: 52px; height: 52px; overflow: visible; }
+
+    .feature { position: absolute; top: 0; }
+    .feature h2 {
+      position: absolute; top: 617.68px; margin: 0; white-space: nowrap;
+      font: 700 19.57px/20px var(--ui); word-spacing: 1.838px; text-transform: uppercase;
+      color: var(--white); text-shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+    .feature p {
+      position: absolute; top: 681.9px; margin: 0;
+      font: 400 12.28px/15.1px var(--ui); word-spacing: -.194px;
+      color: var(--ink); text-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    .feature h2 span, .feature p span { position: relative; display: block; white-space: nowrap; }
+    .feature .icon { position: absolute; overflow: visible; }
+    .f-left { text-align: right; right: 748.5px; }
+    .f-left h2 { right: 0; }
+    .f-left p { right: 12px; }
+    .f-left .icon { right: -4.5px; top: 549.5px; width: 35px; height: 34px; }
+    .f-right { text-align: left; left: 748.5px; }
+    .f-right h2 { left: 0; }
+    .f-right p { left: 12px; }
+    .f-right .icon { left: -3px; top: 547.5px; width: 35px; height: 38px; }
+
+    .hero-cue {
+      position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      font: 600 11px/1 var(--ui); letter-spacing: .3em; text-indent: .3em; text-transform: uppercase; color: var(--cream);
+      opacity: .78; padding: 10px 14px; z-index: 2;
+    }
+    .hero-cue i { font-size: 14px; color: var(--accent); }
+    .hero-cue:hover { opacity: 1; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .eyebrow { animation: riseIn .55s cubic-bezier(.33,.9,.35,1) .15s both; }
+      .headline span { animation: lineIn .9s cubic-bezier(.16,1,.3,1) both; }
+      .headline .hl1 { animation-delay: .28s; }
+      .headline .hl2 { animation-delay: .37s; }
+      .headline .hl3 { animation-delay: .46s; }
+      .headline .hl4 { animation-delay: .55s; }
+      .mark { transform-origin: 50% 50%; animation: markIn .7s cubic-bezier(.2,.9,.25,1) .72s both; }
+      .f-left { animation: blockInL .75s cubic-bezier(.16,1,.3,1) .82s both; }
+      .f-right { animation: blockInR .75s cubic-bezier(.16,1,.3,1) .9s both; }
+      .hero-cue { animation: riseIn .6s ease 1.6s both; }
+    }
+    @keyframes riseIn { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: .78; transform: translate(-50%, 0); } }
+    @keyframes lineIn {
+      0%   { opacity: 0; transform: translateY(.26em); clip-path: inset(100% -30% 0% -30%); }
+      35%  { opacity: 1; }
+      90%  { clip-path: inset(0% -30% -100% -30%); }
+      100% { opacity: 1; transform: none; clip-path: inset(-80% -30% -100% -30%); }
+    }
+    @keyframes markIn { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: none; } }
+    @keyframes blockInL { from { opacity: 0; transform: translate(-12px, 8px); } to { opacity: 1; transform: none; } }
+    @keyframes blockInR { from { opacity: 0; transform: translate(12px, 8px); } to { opacity: 1; transform: none; } }
+    @keyframes eyebrowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: no-preference) { .eyebrow { animation-name: eyebrowIn; } }
+
+    /* Tablet portrait: reflow into a grid, features stay mirrored on the rail */
+    @media (min-width: 610px) and (max-aspect-ratio: 1/1) {
+      :root { --u: min(100vw / 768, 100vh / 1024); --rail: clamp(120px, calc(var(--cover) * 219), 26vw); }
+      .stage {
+        inset: 0; left: 0; top: 0; width: auto; height: auto; margin: 0; transform: none;
+        display: grid; grid-template-columns: 1fr var(--rail) 1fr;
+        grid-template-rows: auto auto 1fr auto auto minmax(0, .38fr);
+        padding: calc(46 * var(--u)) clamp(24px, 5.2vw, 72px) calc(64 * var(--u));
+      }
+      .eyebrow, .headline, .feature, .feature h2, .feature p, .feature .icon { position: static; }
+      .eyebrow { grid-area: 1 / 1 / 2 / -1; width: auto; font-size: calc(11 * var(--u)); line-height: 1.2; letter-spacing: .304em; text-indent: .304em; word-spacing: .07em; margin-bottom: calc(20 * var(--u)); }
+      .headline { grid-area: 2 / 1 / 3 / -1; width: auto; font-size: calc(84 * var(--u)); line-height: .92; word-spacing: .0436em; }
+      .headline span { position: static; width: auto; letter-spacing: -.012em; text-indent: 0; }
+      .mark { position: static; grid-area: 4 / 1 / 5 / -1; justify-self: center; width: calc(64 * var(--u)); height: calc(64 * var(--u)); margin-bottom: calc(16 * var(--u)); }
+      .f-left { grid-area: 5 / 1 / 6 / 2; }
+      .f-right { grid-area: 5 / 3 / 6 / 4; }
+      .feature .icon { display: block; width: calc(42 * var(--u)); height: calc(46 * var(--u)); margin-bottom: calc(14 * var(--u)); }
+      .f-left .icon { margin-left: auto; margin-right: calc(-4.5 * var(--u)); }
+      .f-right .icon { margin-right: auto; margin-left: calc(-3 * var(--u)); }
+      .feature h2 { font-size: calc(22 * var(--u)); line-height: 1.08; word-spacing: .094em; margin-bottom: calc(12 * var(--u)); white-space: normal; }
+      .feature h2 span { white-space: normal; letter-spacing: -.018em; }
+      .feature p { font-size: calc(14.5 * var(--u)); line-height: 1.34; word-spacing: -.016em; max-width: calc(310 * var(--u)); }
+      .feature p span { display: inline; white-space: normal; letter-spacing: -.02em; }
+      .f-left p { margin-left: auto; margin-right: calc(10 * var(--u)); }
+      .f-right p { margin-right: auto; margin-left: calc(10 * var(--u)); }
+    }
+    /* Phone: unstack features but keep their mirrored identity */
+    @media (max-width: 609px) {
+      :root { --u: min(100vw / 390, 100vh / 780); }
+      @supports (height: 100dvh) { :root { --u: min(100vw / 390, 100dvh / 780); } }
+      .frame { height: 100vh; height: 100dvh; }
+      .stage {
+        inset: 0; left: 0; top: 0; width: auto; height: auto; margin: 0; transform: none;
+        display: grid; grid-template-columns: 100%;
+        grid-template-rows: auto auto 1fr auto auto auto minmax(0, .3fr);
+        padding: calc(30 * var(--u)) max(calc(22 * var(--u)), env(safe-area-inset-right)) max(calc(58 * var(--u)), env(safe-area-inset-bottom)) max(calc(22 * var(--u)), env(safe-area-inset-left));
+      }
+      .eyebrow, .headline, .feature, .feature h2, .feature p, .feature .icon { position: static; }
+      .eyebrow { grid-row: 1; width: auto; font-size: clamp(8px, calc(9.5 * var(--u)), 11px); line-height: 1.3; letter-spacing: .304em; text-indent: .304em; margin-bottom: calc(16 * var(--u)); }
+      .headline { grid-row: 2; width: auto; font-size: clamp(26px, min(11.6vw, calc(52 * var(--u))), 64px); line-height: .92; }
+      .headline span { position: static; width: auto; letter-spacing: -.012em; text-indent: 0; }
+      .mark { position: static; grid-row: 4; justify-self: center; width: clamp(38px, calc(46 * var(--u)), 54px); height: clamp(38px, calc(46 * var(--u)), 54px); margin-bottom: calc(18 * var(--u)); }
+      .f-left { grid-row: 5; margin-bottom: calc(26 * var(--u)); }
+      .f-right { grid-row: 6; }
+      .feature .icon { display: block; width: clamp(26px, calc(34 * var(--u)), 40px); height: clamp(28px, calc(37 * var(--u)), 43px); margin-bottom: 10px; }
+      .f-left .icon { margin-left: auto; margin-right: calc(-4 * var(--u)); }
+      .f-right .icon { margin-right: auto; margin-left: calc(-3 * var(--u)); }
+      .feature h2 { font-size: clamp(15px, calc(17 * var(--u)), 20px); line-height: 1.08; margin-bottom: 8px; }
+      .feature p { font-size: clamp(11.5px, calc(13.5 * var(--u)), 14.5px); line-height: 1.36; max-width: calc(320 * var(--u)); }
+      .feature p span { display: inline; white-space: normal; }
+      .f-left p { margin-left: auto; }
+      .f-right p { margin-right: auto; }
+    }
+
+    /* =====================================================================
+       Navigation (appears after the hero)
+       ===================================================================== */
+    .nav {
+      position: fixed; left: 0; right: 0; top: 0; z-index: 50;
+      display: flex; align-items: center; gap: 20px;
+      padding: 12px var(--gut); padding-top: max(12px, env(safe-area-inset-top));
+      background: rgba(10,11,12,.78); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      border-bottom: 1px solid var(--line);
+      transform: translateY(-110%); transition: transform .45s cubic-bezier(.2,.9,.3,1);
+    }
+    .nav.is-on { transform: none; }
+    .nav-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--cream); font: 700 17px/1 var(--display); letter-spacing: .05em; text-transform: uppercase; flex: none; }
+    .nav-brand em { font-style: normal; color: var(--accent); }
+    .nav-brand img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(255,45,155,.45); }
+    .nav-brand em { margin-left: 3px; }
+    .nav-links { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { text-decoration: none; padding: 8px 11px; border-radius: 8px; font: 600 12px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); white-space: nowrap; transition: color .2s, background .2s; }
+    .nav-links a:hover, .nav-links a.is-current { color: var(--cream); background: rgba(255,255,255,.05); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex: none;
+      padding: 12px 18px; border-radius: 11px; border: 1px solid transparent;
+      font: 600 13px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase;
+      transition: transform .18s, background .2s, border-color .2s;
+    }
+    .btn i { font-size: 16px; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: #FF4DAE; transform: translateY(-1px); }
+    .btn-line { border-color: var(--line-2); color: var(--cream); }
+    .btn-line:hover { background: rgba(255,255,255,.05); }
+    .nav .btn { padding: 10px 14px; }
+    @media (max-width: 900px) { .nav-links { display: none; } .nav .btn { margin-left: auto; } }
+
+    /* =====================================================================
+       Sections
+       ===================================================================== */
+    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gut); }
+    section.block { position: relative; padding: clamp(80px, 11vw, 150px) 0; border-top: 1px solid var(--line); }
+    .kicker { display: flex; align-items: center; gap: 14px; font: 600 12px/1 var(--ui); letter-spacing: .3em; text-transform: uppercase; color: var(--muted); margin-bottom: 22px; }
+    .kicker b { color: var(--accent); font-weight: 700; }
+    .kicker::after { content: ""; height: 1px; flex: 0 1 120px; background: var(--line-2); }
+    .h2 { margin: 0; font: 700 clamp(44px, 7.4vw, 104px)/.9 var(--display); text-transform: uppercase; letter-spacing: -.01em; color: var(--cream); }
+    .h2 .acc { color: var(--accent); }
+    .lead { max-width: 640px; margin: 26px 0 0; font-size: clamp(17px, 1.6vw, 20px); color: var(--ink); line-height: 1.5; }
+    .lead strong { color: var(--cream); font-weight: 600; }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 80px); align-items: end; }
+    @media (max-width: 900px) { .split { grid-template-columns: 1fr; align-items: start; } }
+    code, .mono { font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace; }
+
+    /* Reveal on scroll */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .8s cubic-bezier(.2,.9,.3,1), transform .8s cubic-bezier(.2,.9,.3,1); }
+    .reveal.is-in { opacity: 1; transform: none; }
+    .reveal.d1 { transition-delay: .08s; } .reveal.d2 { transition-delay: .16s; } .reveal.d3 { transition-delay: .24s; }
+    @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } }
+
+    /* ---------- 01 Brief ---------- */
+    .needs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: clamp(40px, 6vw, 72px); }
+    @media (max-width: 900px) { .needs { grid-template-columns: 1fr; } }
+    .need {
+      position: relative; padding: 26px 24px 24px; border-radius: 20px; border: 1px solid var(--line);
+      background: radial-gradient(120% 120% at 0% 0%, rgba(255,45,155,.08), transparent 52%), var(--panel);
+      overflow: hidden;
+    }
+    .need .letter { position: absolute; right: 18px; top: 6px; font: 700 110px/1 var(--display); color: rgba(251,239,247,.05); pointer-events: none; }
+    .need i.big { font-size: 34px; color: var(--accent); }
+    .need h3 { margin: 18px 0 10px; font: 700 26px/1 var(--display); text-transform: uppercase; color: var(--cream); letter-spacing: .01em; }
+    .need .q { margin: 0 0 14px; color: var(--cream); font-style: italic; }
+    .need p { margin: 0; color: var(--muted); font-size: 15px; }
+    .need code { color: var(--accent-2); font-size: 13px; }
+
+    .reqs { margin-top: clamp(48px, 7vw, 90px); border-top: 1px solid var(--line-2); }
+    .req { display: grid; grid-template-columns: 54px minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, .8fr); gap: 18px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--line); }
+    .req .n { font: 600 13px/1 var(--ui); letter-spacing: .14em; color: var(--accent); }
+    .req .r { font: 600 18px/1.25 var(--ui); text-transform: uppercase; letter-spacing: .03em; color: var(--cream); }
+    .req .s { color: var(--ink); font-size: 15px; }
+    .req .w { font-size: 13px; color: var(--muted); }
+    .req .w code { color: var(--cream); font-size: 12.5px; }
+    .req .ok { color: var(--ok); margin-right: 6px; }
+    .reqs-head { display: grid; grid-template-columns: 54px minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, .8fr); gap: 18px; padding: 14px 0; font: 600 11px/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--line); }
+    @media (max-width: 760px) {
+      .reqs-head { display: none; }
+      .req { grid-template-columns: 40px 1fr; }
+      .req .s, .req .w { grid-column: 2; }
+    }
+
+    /* ---------- 02 Network ---------- */
+    .net { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; margin-top: clamp(40px, 6vw, 72px); }
+    @media (max-width: 980px) { .net { grid-template-columns: 1fr; } }
+    .net-map { position: relative; min-height: 560px; border-radius: 22px; overflow: hidden; border: 1px solid var(--line); background: #110C15; isolation: isolate; }
+    #netmap { position: absolute; inset: 0; }
+    .tiles-night { filter: invert(1) hue-rotate(185deg) brightness(.9) contrast(.9) saturate(.15) sepia(.45) hue-rotate(255deg) saturate(1.3); }
+    .leaflet-container { background: #110C15; font-family: var(--body); }
+    .leaflet-control-attribution { background: rgba(10,11,12,.72) !important; color: var(--muted) !important; font-size: 10px; }
+    .leaflet-control-attribution a { color: var(--ink) !important; }
+    .leaflet-bar a { background: var(--panel) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+    .leaflet-tooltip.tip { background: rgba(14,16,18,.95); color: var(--ink); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); padding: 8px 10px; font: 500 12.5px/1.35 var(--body); }
+    .leaflet-tooltip.tip::before { display: none; }
+    .tip b { font: 600 14px/1.2 var(--display); text-transform: uppercase; color: var(--cream); letter-spacing: .03em; }
+    .map-chip { position: absolute; left: 16px; top: 16px; z-index: 500; display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(10,11,12,.8); border: 1px solid var(--line); font: 600 11px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--cream); }
+    .map-chip i { color: var(--accent); font-size: 15px; }
+
+    .net-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+    .stat { background: var(--panel); padding: 20px 20px 18px; }
+    .stat .v { font: 700 clamp(38px, 4.6vw, 56px)/1 var(--display); color: var(--cream); font-variant-numeric: tabular-nums; }
+    .stat .v small { font-size: .42em; color: var(--muted); margin-left: 4px; letter-spacing: .04em; }
+    .stat .l { margin-top: 8px; font: 600 11.5px/1.3 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+    .lot-table { border: 1px solid var(--line); border-radius: 22px; background: var(--panel); overflow: hidden; display: flex; flex-direction: column; min-height: 0; max-height: 420px; }
+    .lot-table header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); font: 600 11.5px/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+    .lot-rows { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+    .lot-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); cursor: default; transition: background .2s; }
+    .lot-row:hover, .lot-row.is-hot { background: rgba(255,45,155,.08); }
+    .lot-row .c { font: 700 13px/1 var(--display); letter-spacing: .08em; color: var(--accent-2); }
+    .lot-row .m { font: 600 15px/1.1 var(--ui); text-transform: uppercase; letter-spacing: .04em; color: var(--cream); }
+    .lot-row .xy { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .cap { display: flex; gap: 3px; justify-content: flex-end; }
+    .cap i { width: 7px; height: 16px; border-radius: 2px; background: var(--accent); opacity: .85; }
+
+    /* ---------- 03 Architecture 4+1 ---------- */
+    .views-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-top: clamp(36px, 5vw, 60px); }
+    .vtab {
+      display: inline-flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px;
+      border: 1px solid var(--line-2); background: transparent; color: var(--muted); cursor: pointer;
+      font: 600 13px/1 var(--ui); letter-spacing: .14em; text-transform: uppercase; transition: all .2s;
+    }
+    .vtab b { font-weight: 700; color: var(--faint); }
+    .vtab:hover { color: var(--cream); }
+    .vtab.is-active { background: var(--cream); color: #111; border-color: var(--cream); }
+    .vtab.is-active b { color: var(--accent); }
+    .vpanel { display: none; grid-template-columns: minmax(0, .9fr) minmax(0, 1.6fr); gap: clamp(24px, 4vw, 56px); margin-top: 22px; padding: clamp(20px, 3vw, 36px); border-radius: 24px; border: 1px solid var(--line); background: var(--panel); }
+    .vpanel.is-active { display: grid; animation: vIn .5s cubic-bezier(.2,.9,.3,1); }
+    @keyframes vIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 980px) { .vpanel { grid-template-columns: 1fr; } }
+    .vpanel h3 { margin: 0; font: 700 clamp(30px, 3.4vw, 44px)/.95 var(--display); text-transform: uppercase; color: var(--cream); }
+    .vpanel .who { margin: 12px 0 18px; font: 600 12px/1.4 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--accent-2); }
+    .vpanel p { margin: 0 0 14px; color: var(--ink); font-size: 15.5px; }
+    .vpanel ul { margin: 0; padding: 0; list-style: none; }
+    .vpanel li { position: relative; padding: 9px 0 9px 22px; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--ink); }
+    .vpanel li::before { content: ""; position: absolute; left: 2px; top: 17px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--accent); }
+    .vpanel li code { color: var(--cream); font-size: 12.5px; }
+    .diagram { display: flex; align-items: center; min-width: 0; overflow-x: auto; border-radius: 16px; background: #130E17; border: 1px solid var(--line); padding: 14px; scrollbar-width: thin; }
+    .diagram svg { width: 100%; min-width: 620px; height: auto; }
+    /* diagram vocabulary */
+    .d-box { fill: #1D1524; stroke: rgba(251,239,247,.22); stroke-width: 1.2; }
+    .d-box-acc { fill: rgba(255,45,155,.1); stroke: #FF2D9B; stroke-width: 1.4; }
+    .d-band { fill: rgba(251,239,247,.025); stroke: rgba(251,239,247,.08); }
+    .d-line { stroke: rgba(251,239,247,.5); stroke-width: 1.3; fill: none; }
+    .d-line-acc { stroke: #FF2D9B; stroke-width: 1.6; fill: none; }
+    .d-dash { stroke-dasharray: 5 5; }
+    .d-life { stroke: rgba(251,239,247,.22); stroke-width: 1.2; stroke-dasharray: 3 5; }
+    .d-t { font: 600 13px var(--ui); fill: #FBEFF7; letter-spacing: .02em; }
+    .d-h { font: 700 13px var(--ui); fill: #FBEFF7; letter-spacing: .12em; text-transform: uppercase; }
+    .d-s { font: 500 11.5px var(--ui); fill: rgba(251,239,247,.62); letter-spacing: .02em; }
+    .d-acc { fill: #F7A8E0; }
+    .d-mult { font: 600 11px var(--ui); fill: #E9B44C; }
+    .d-actor circle, .d-actor path { stroke: #FBEFF7; stroke-width: 1.6; fill: none; }
+    .d-uc { fill: #1D1524; stroke: rgba(251,239,247,.32); stroke-width: 1.2; }
+    .d-bg { fill: #130E17; }
+
+    /* ---------- 04 Database ---------- */
+    .er { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: clamp(40px, 6vw, 72px); }
+    @media (max-width: 980px) { .er { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { .er { grid-template-columns: 1fr; } }
+    .tbl { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); overflow: hidden; }
+    .tbl.geo { border-color: rgba(255,45,155,.45); }
+    .tbl h4 { margin: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--line); font: 700 15px/1 var(--display); letter-spacing: .05em; color: var(--cream); }
+    .tbl h4 span { font: 600 10.5px/1 var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .tbl ul { list-style: none; margin: 0; padding: 6px 0; }
+    .tbl li { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 5px 14px; font-size: 13.5px; }
+    .tbl li .col { color: var(--ink); font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace; font-size: 12.5px; }
+    .tbl li .ty { color: var(--muted); font-size: 12px; text-align: right; }
+    .tag { display: inline-block; margin-left: 6px; padding: 2px 5px; border-radius: 4px; font: 700 9.5px/1.2 var(--ui); letter-spacing: .1em; vertical-align: 1px; }
+    .tag.pk { background: rgba(233,180,76,.16); color: var(--mid); }
+    .tag.fk { background: rgba(185,140,240,.14); color: var(--info); }
+    .tag.gis { background: rgba(255,45,155,.16); color: var(--accent-2); }
+    .tag.uq { background: rgba(54,214,176,.12); color: var(--ok); }
+
+    .rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    @media (max-width: 900px) { .rules { grid-template-columns: 1fr; } }
+    .rule { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); padding: 20px; min-width: 0; }
+    .rule h5 { margin: 0 0 6px; display: flex; align-items: center; gap: 10px; font: 700 19px/1.1 var(--display); text-transform: uppercase; color: var(--cream); letter-spacing: .02em; }
+    .rule h5 i { color: var(--accent); font-size: 22px; }
+    .rule p { margin: 0 0 12px; color: var(--muted); font-size: 14.5px; }
+    pre.sql {
+      margin: 0; padding: 14px 16px; border-radius: 12px; background: #110C15; border: 1px solid var(--line);
+      font-size: 12.5px; line-height: 1.6; color: var(--ink); overflow-x: auto; white-space: pre;
+    }
+    pre.sql .k { color: #F7A8E0; } pre.sql .f { color: #B98CF0; } pre.sql .c { color: rgba(251,239,247,.4); } pre.sql .s { color: #36D6B0; }
+
+    /* ---------- 05 Live system ---------- */
+    .browser { margin-top: clamp(40px, 6vw, 72px); border-radius: 18px; border: 1px solid var(--line-2); background: #130E17; overflow: hidden; box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4); }
+    .browser-bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: #19121F; }
+    .dots { display: flex; gap: 7px; } .dots i { width: 11px; height: 11px; border-radius: 50%; background: #3A2C44; }
+    .dots i:nth-child(1) { background: #FF2D9B; }
+    .url { flex: 1; max-width: 520px; margin: 0 auto; padding: 7px 12px; border-radius: 8px; background: #110C15; border: 1px solid var(--line); font: 500 12.5px/1 var(--body); color: var(--muted); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .url b { color: var(--cream); font-weight: 600; }
+    .browser iframe { display: block; width: 100%; height: min(760px, 82vh); border: 0; background: #0E0A12; }
+    .live-feats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+    @media (max-width: 900px) { .live-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .lf { padding: 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+    .lf i { font-size: 24px; color: var(--accent); }
+    .lf h4 { margin: 12px 0 6px; font: 700 17px/1.1 var(--display); text-transform: uppercase; color: var(--cream); letter-spacing: .02em; }
+    .lf p { margin: 0; font-size: 14px; color: var(--muted); }
+
+    /* ---------- 06 Mobile ---------- */
+    .mobile { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(32px, 6vw, 96px); align-items: center; }
+    @media (max-width: 900px) { .mobile { grid-template-columns: 1fr; } }
+    .phone {
+      position: relative; width: 340px; height: 700px; border-radius: 52px; padding: 12px;
+      background: linear-gradient(145deg, #2E2236, #19121F); box-shadow: 0 40px 120px rgba(0,0,0,.65), inset 0 0 0 1.5px rgba(255,255,255,.08);
+      justify-self: center;
+    }
+    .phone { padding-top: 40px; }
+    .phone::before { content: ""; position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: 84px; height: 18px; border-radius: 20px; background: #0B0610; z-index: 2; }
+    .phone iframe { width: 100%; height: 100%; border: 0; border-radius: 41px; background: #0E0A12; }
+    @media (max-width: 420px) { .phone { width: 300px; height: 620px; } }
+    .steps { list-style: none; margin: 30px 0 0; padding: 0; counter-reset: s; }
+    .steps li { counter-increment: s; position: relative; padding: 16px 0 16px 52px; border-top: 1px solid var(--line); color: var(--ink); }
+    .steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0; top: 16px; font: 700 15px/1 var(--display); color: var(--accent); letter-spacing: .06em; }
+    .steps li b { color: var(--cream); font-weight: 600; }
+    .term { margin-top: 22px; border-radius: 14px; border: 1px solid var(--line); background: #110C15; overflow: hidden; }
+    .term header { padding: 9px 14px; border-bottom: 1px solid var(--line); font: 600 11px/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .term pre { margin: 0; padding: 14px 16px; font-size: 13px; line-height: 1.7; color: var(--cream); overflow-x: auto; }
+    .term pre .c { color: rgba(251,239,247,.4); }
+    .term pre .p { color: var(--accent-2); user-select: none; }
+
+    /* ---------- 07 Run ---------- */
+    .run { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: clamp(40px, 6vw, 72px); }
+    @media (max-width: 980px) { .run { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .run { grid-template-columns: 1fr; } }
+    .run-card { padding: 22px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); min-width: 0; }
+    .run-card .n { font: 700 46px/1 var(--display); color: rgba(251,239,247,.1); }
+    .run-card h4 { margin: 10px 0 8px; font: 700 20px/1.05 var(--display); text-transform: uppercase; color: var(--cream); }
+    .run-card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+    .run-card code { color: var(--accent-2); font-size: 12.5px; word-break: break-word; }
+    .tree { margin-top: 14px; padding: 22px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); font-size: 13.5px; line-height: 1.75; color: var(--ink); overflow-x: auto; white-space: pre; }
+    .tree .d { color: var(--cream); font-weight: 600; }
+    .tree .c { color: var(--muted); }
+
+    /* ---------- Footer ---------- */
+    footer { border-top: 1px solid var(--line); padding: 64px 0 calc(48px + env(safe-area-inset-bottom)); }
+    .foot { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 40px; }
+    @media (max-width: 900px) { .foot { grid-template-columns: 1fr; } }
+    .foot h6 { margin: 0 0 14px; font: 600 12px/1 var(--ui); letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
+    .foot p, .foot li { color: var(--ink); font-size: 14px; margin: 0 0 10px; }
+    .foot ul { list-style: none; margin: 0; padding: 0; }
+    .foot a { color: var(--cream); text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+    .foot .big { font: 700 clamp(34px, 4vw, 52px)/.95 var(--display); text-transform: uppercase; color: var(--cream); margin: 0 0 16px; }
+    .foot .big span { color: var(--accent); }
+    .dev-label { margin: 0 0 10px !important; font: 600 11px/1 var(--ui) !important; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-2) !important; }
+    .foot ul.devs { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .foot ul.devs li { position: relative; padding-left: 16px; font: 600 16px/1.3 var(--ui); letter-spacing: .03em; color: var(--cream); }
+    .foot ul.devs li::before { content: ""; position: absolute; left: 0; top: .55em; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(255,45,155,.6); }
+    .foot-icon { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin-bottom: 18px; box-shadow: 0 0 0 2px var(--accent), 0 0 34px rgba(255,45,155,.45); }
+    .foot .slogan { margin: -6px 0 16px; font: 500 italic 17px/1.35 var(--body); color: var(--accent-2); }
+
+    /* =====================================================================
+       Motion layer — Hush details (transform / opacity / dashoffset only)
+       ===================================================================== */
+    :root {
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    }
+
+    /* scroll progress — tied to scroll → linear */
+    .scroll-progress {
+      position: fixed; left: 0; top: 0; right: 0; height: 2px; z-index: 70; pointer-events: none;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent) 60%, #B98CF0);
+      transform-origin: 0 50%; transform: scaleX(0);
+      box-shadow: 0 0 12px rgba(255,45,155,.7);
+    }
+
+    /* hero: HUD corner brackets inspired by Hush's key art */
+    .hud-corners { position: absolute; inset: clamp(14px, 2.4vw, 30px); pointer-events: none; z-index: 1; }
+    .hud-corners i { position: absolute; width: 42px; height: 42px; border: 0 solid rgba(255,45,155,.85); }
+    .hud-corners i:nth-child(1) { left: 0; top: 0; border-left-width: 2px; border-top-width: 2px; transform-origin: 0 0; }
+    .hud-corners i:nth-child(2) { right: 0; top: 0; border-right-width: 2px; border-top-width: 2px; transform-origin: 100% 0; }
+    .hud-corners i:nth-child(3) { left: 0; bottom: 0; border-left-width: 2px; border-bottom-width: 2px; transform-origin: 0 100%; }
+    .hud-corners i:nth-child(4) { right: 0; bottom: 0; border-right-width: 2px; border-bottom-width: 2px; transform-origin: 100% 100%; }
+    .hud-corners i::after { content: ""; position: absolute; width: 6px; height: 6px; background: var(--accent); }
+    .hud-corners i:nth-child(1)::after { left: 8px; top: 8px; }
+    .hud-corners i:nth-child(2)::after { right: 8px; top: 8px; }
+    .hud-corners i:nth-child(3)::after { left: 8px; bottom: 8px; }
+    .hud-corners i:nth-child(4)::after { right: 8px; bottom: 8px; }
+    @media (prefers-reduced-motion: no-preference) {
+      .hud-corners i { animation: cornerIn .7s var(--ease-out) 1.05s both; }
+      .hud-corners i:nth-child(2) { animation-delay: 1.11s; }
+      .hud-corners i:nth-child(3) { animation-delay: 1.17s; }
+      .hud-corners i:nth-child(4) { animation-delay: 1.23s; }
+    }
+    @keyframes cornerIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+    @media (max-width: 609px) { .hud-corners i { width: 26px; height: 26px; } }
+
+    /* hero parallax (values set by JS on each element) */
+    .bg { transform: scale(var(--vz, 1)); transform-origin: 50% 60%; }
+    .stage { opacity: var(--fade, 1); }
+
+    /* municipalities ticker */
+    .ticker { position: relative; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #110C15; padding: 16px 0; }
+    .ticker::before, .ticker::after { content: ""; position: absolute; top: 0; bottom: 0; width: 120px; z-index: 1; pointer-events: none; }
+    .ticker::before { left: 0; background: linear-gradient(90deg, #110C15, transparent); }
+    .ticker::after { right: 0; background: linear-gradient(-90deg, #110C15, transparent); }
+    .ticker-track { display: flex; width: max-content; }
+    .ticker-track span { display: inline-flex; align-items: center; gap: 18px; padding-right: 18px; white-space: nowrap; font: 700 22px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; color: var(--cream); }
+    .ticker-track span b { font: 600 11px/1 var(--ui); letter-spacing: .18em; color: var(--accent-2); }
+    .ticker-track span i { color: var(--accent); font-size: 16px; }
+    @media (prefers-reduced-motion: no-preference) {
+      .ticker-track { animation: ticker 70s linear infinite; }
+    }
+    @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+      .ticker:hover .ticker-track { animation-play-state: paused; }
+    }
+    /* reduced motion: the strip simply stays still */
+    @keyframes ticker { to { transform: translateX(-50%); } }
+
+    /* section titles: masked line reveal, 80ms stagger */
+    .h2 .ln { display: block; overflow-x: visible; overflow-y: clip; padding-bottom: .05em; margin-bottom: -.05em; }
+    .h2 .ln > span { display: block; }
+    @media (prefers-reduced-motion: no-preference) {
+      .reveal .h2 .ln > span { transform: translateY(108%); transition: transform .9s var(--ease-out); }
+      .reveal.is-in .h2 .ln > span { transform: none; }
+      .reveal.is-in .h2 .ln:nth-child(2) > span { transition-delay: .08s; }
+      .reveal.is-in .h2 .ln:nth-child(3) > span { transition-delay: .16s; }
+      .reveal .kicker::after { transform: scaleX(0); transform-origin: 0 50%; transition: transform .9s var(--ease-out) .2s; }
+      .reveal.is-in .kicker::after { transform: none; }
+    }
+
+    /* cards: pointer spotlight (fine pointers only) */
+    .need, .rule, .lf, .run-card, .tbl, .stat { position: relative; isolation: isolate; }
+    .need::after, .rule::after, .lf::after, .run-card::after, .tbl::after, .stat::after {
+      content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+      background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(255,45,155,.14), transparent 60%);
+      opacity: 0; transition: opacity 200ms ease;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .need:hover::after, .rule:hover::after, .lf:hover::after, .run-card:hover::after, .tbl:hover::after, .stat:hover::after { opacity: 1; }
+      .need, .rule, .lf, .run-card, .tbl { transition: border-color 200ms ease, transform 200ms var(--ease-out); }
+      .need:hover, .rule:hover, .lf:hover, .run-card:hover, .tbl:hover { border-color: rgba(255,45,155,.4); transform: translateY(-3px); }
+    }
+
+    /* press feedback */
+    .btn, .vtab { transition: transform 140ms var(--ease-out), background-color 200ms ease, color 200ms ease, border-color 200ms ease; }
+    .btn:active, .vtab:active { transform: scale(.97); }
+
+    /* network map: hub flow lines from Bogotá (constant motion → linear) */
+    .flow-line { stroke-dasharray: 2 10; }
+    @media (prefers-reduced-motion: no-preference) {
+      .flow-line { animation: flow 1.6s linear infinite; }
+    }
+    @keyframes flow { to { stroke-dashoffset: -12; } }
+
+    /* hero cue arrow nudge */
+    @media (prefers-reduced-motion: no-preference) {
+      .hero-cue i { animation: nudge 1.8s var(--ease-in-out) 2.4s infinite; }
+    }
+    @keyframes nudge { 0%, 100% { transform: none; } 50% { transform: translateY(4px); } }
+
+    /* footer icon glow */
+    @media (prefers-reduced-motion: no-preference) {
+      .foot-icon { animation: breathe 4s var(--ease-in-out) infinite alternate; }
+    }
+    @keyframes breathe { from { box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(255,45,155,.3); } to { box-shadow: 0 0 0 2px var(--accent), 0 0 40px rgba(255,45,155,.6); } }
+
+    /* =====================================================================
+       Scroll layer — motion tied to reading the page
+       ===================================================================== */
+    /* route rail: a bus travels the page, one stop per section */
+    .route-rail {
+      position: fixed; left: 22px; top: 50%; z-index: 40; width: 28px; height: min(62vh, 520px);
+      transform: translate(-8px, -50%); opacity: 0; pointer-events: none;
+      transition: opacity 400ms ease, transform 500ms var(--ease-out);
+    }
+    .route-rail.is-on { opacity: 1; transform: translate(0, -50%); pointer-events: auto; }
+    .rr-line { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, rgba(251,239,247,.22) 0 6px, transparent 6px 12px); }
+    .rr-fill { position: absolute; inset: 0; background: linear-gradient(var(--accent-2), var(--accent)); transform-origin: 50% 0; transform: scaleY(0); box-shadow: 0 0 10px rgba(255,45,155,.7); }
+    .rr-bus {
+      position: absolute; left: 0; top: 0; width: 28px; height: 28px; margin-top: -14px; z-index: 2;
+      border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 15px;
+      box-shadow: 0 0 0 4px rgba(255,45,155,.25), 0 6px 16px rgba(0,0,0,.5);
+    }
+    .rr-stops { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
+    .rr-stops li { position: absolute; left: 7px; width: 14px; height: 14px; margin-top: -7px; }
+    .rr-stops a { display: block; width: 14px; height: 14px; border-radius: 50%; background: #0E0A12; border: 2px solid rgba(251,239,247,.35); transition: border-color 250ms ease, background-color 250ms ease, transform 200ms var(--ease-out); }
+    .rr-stops li.on a { border-color: var(--accent); background: var(--accent); }
+    .rr-stops span {
+      position: absolute; left: 26px; top: 50%; transform: translate(-4px, -50%); white-space: nowrap; pointer-events: none;
+      padding: 5px 7px; border-radius: 6px; background: rgba(14,10,18,.88); border: 1px solid var(--line);
+      font: 600 10.5px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--cream);
+      opacity: 0; transition: opacity 180ms ease, transform 180ms var(--ease-out);
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .rr-stops li:hover span { opacity: 1; transform: translate(0, -50%); }
+      .rr-stops a:hover { transform: scale(1.2); }
+    }
+    @media (max-width: 1199px) { .route-rail { display: none; } }
+
+    /* staggered children (requirement rows, steps, terminal table) */
+    @media (prefers-reduced-motion: no-preference) {
+      [data-stagger] > * { opacity: 0; transform: translateY(16px); }
+      [data-stagger].stg-in > * {
+        opacity: 1; transform: none;
+        transition: opacity 600ms var(--ease-out), transform 700ms var(--ease-out);
+        transition-delay: calc(var(--i, 0) * 55ms);
+      }
+      [data-stagger].stg-done > * { transition: background-color 200ms ease; transition-delay: 0s; }
+    }
+
+    /* paragraphs that light up word by word while you read them */
+    .scrub .w { opacity: .22; transition: opacity 300ms ease; }
+    .scrub .w.on { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) { .scrub .w { opacity: 1; } }
+
+    /* system window tilts into place, phone rotates in (values set by JS) */
+    .scrolly-tilt { transform-origin: 50% 0%; }
+
+    /* network map: terminals pop in one by one */
+    @media (prefers-reduced-motion: no-preference) {
+      .lot-dot { transform-box: fill-box; transform-origin: center; opacity: 0; transform: scale(.6); transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
+      .net-map.is-in .lot-dot { opacity: 1; transform: none; }
+    }
+
+    /* ticker leans with scroll speed (transform set on its own wrapper) */
+    .ticker-skew { will-change: transform; }
+  </style>
+  <script>
+    (function () {
+      var w = window.innerWidth, h = window.innerHeight, r = document.documentElement.style;
+      r.setProperty('--s', Math.min(h / 800, w / 716));
+      r.setProperty('--cover', Math.max(w / 1280, h / 800));
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- =================================================================== HERO -->
+  <div class="frame" id="top">
+    <video class="bg" autoplay muted loop playsinline disablepictureinpicture preload="auto"
+           poster="assets/media/hero-poster.jpg"
+           aria-label="Vista aérea de un bus intermunicipal recorriendo una autopista al amanecer">
+      <source src="assets/media/hero-bus.mp4" type="video/mp4">
+    </video>
+    <div class="tint"></div>
+    <div class="hud-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <main class="stage">
+      <p class="eyebrow"><span>Hush · Reescribe las reglas del campo de batalla</span></p>
+      <h1 class="headline">
+        <span class="hl1">Cada bus,</span>
+        <span class="hl2">cada cupo,</span>
+        <span class="hl3">cada puesto</span>
+        <span class="hl4">en el mapa.</span>
+      </h1>
+
+      <svg class="mark" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+        <circle cx="26" cy="26" r="23" stroke="#FF2D9B" stroke-width="1.6" stroke-dasharray="98.3 46.3" transform="rotate(2.5 26 26)"/>
+        <g stroke="#FF2D9B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M26 15.6c-3.9 0-6.9 2.9-6.9 6.7 0 5 6.9 11.9 6.9 11.9s6.9-6.9 6.9-11.9c0-3.8-3-6.7-6.9-6.7Z"/>
+          <circle cx="26" cy="22.3" r="2.2"/>
+        </g>
+      </svg>
+
+      <section class="feature f-left">
+        <svg class="icon" viewBox="0 0 35 34" fill="none" aria-hidden="true">
+          <circle cx="17.5" cy="17" r="16.5" stroke="#F9F9F9" stroke-width="1.9" stroke-dasharray="3.6 3"/>
+          <circle cx="17.5" cy="17" r="9.8" fill="#F9F9F9"/>
+          <path d="M15 21.6V12.4h3.1c1.9 0 3.1 1.2 3.1 2.9s-1.2 2.9-3.1 2.9H15" stroke="#1A1220" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2><span class="t1">Disponibilidad</span><span class="t2">de parqueaderos</span></h2>
+        <p>
+          <span class="b1">21 terminales en Cundinamarca.</span>
+          <span class="b2">Cupos libres, buses parqueados y</span>
+          <span class="b3">próximas salidas en un mapa dinámico.</span>
+        </p>
+      </section>
+
+      <section class="feature f-right">
+        <svg class="icon" viewBox="0 0 35 38" fill="none" aria-hidden="true">
+          <rect x="3.5" y="0.5" width="28" height="31" rx="4.5" fill="#F9F9F9"/>
+          <rect x="6.5" y="4" width="22" height="12" rx="1.5" fill="#1A1220"/>
+          <rect x="1.2" y="6" width="1.6" height="6" rx=".8" fill="#F9F9F9"/>
+          <rect x="32.2" y="6" width="1.6" height="6" rx=".8" fill="#F9F9F9"/>
+          <circle cx="9.6" cy="24.6" r="1.9" fill="#1A1220"/>
+          <circle cx="25.4" cy="24.6" r="1.9" fill="#1A1220"/>
+          <rect x="13.6" y="23.6" width="7.8" height="1.9" rx=".5" fill="#1A1220"/>
+          <rect x="6.6" y="18.6" width="1.1" height="1.9" fill="#1A1220"/><rect x="9.7" y="18.6" width="1.1" height="1.9" fill="#1A1220"/>
+          <rect x="24.2" y="18.6" width="1.1" height="1.9" fill="#1A1220"/><rect x="27.3" y="18.6" width="1.1" height="1.9" fill="#1A1220"/>
+          <rect x="6.5" y="32" width="5" height="5.5" rx="1" fill="#F9F9F9"/>
+          <rect x="23.5" y="32" width="5" height="5.5" rx="1" fill="#F9F9F9"/>
+        </svg>
+        <h2><span class="t1">Puestos y horarios</span><span class="t2">por bus</span></h2>
+        <p>
+          <span class="b1">Registre llegadas y salidas,</span>
+          <span class="b2">controle la permanencia y venda</span>
+          <span class="b3">puestos antes de que el bus salga.</span>
+        </p>
+      </section>
+    </main>
+    <a class="hero-cue" href="#brief">La solución <i class="ph ph-arrow-down"></i></a>
+  </div>
+
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <nav class="route-rail" aria-label="Recorrido de la página">
+    <span class="rr-line"><span class="rr-fill"></span></span>
+    <span class="rr-bus" aria-hidden="true"><i class="ph-fill ph-bus"></i></span>
+    <ol class="rr-stops"></ol>
+  </nav>
+  <div class="ticker" aria-hidden="true"><div class="ticker-skew"><div class="ticker-track"></div></div></div>
+
+  <!-- =================================================================== NAV -->
+  <nav class="nav" id="nav" aria-label="Secciones">
+    <a class="nav-brand" href="#top">
+      <img src="assets/media/hush-icon.webp" alt="" width="28" height="28">
+      Hush<em>Buses</em>
+    </a>
+    <div class="nav-links">
+      <a href="#brief">Reto</a>
+      <a href="#network">Red</a>
+      <a href="#architecture">Vistas 4+1</a>
+      <a href="#database">Base de datos</a>
+      <a href="#system">Sistema</a>
+      <a href="#mobile">Móvil</a>
+      <a href="#run">Ejecutar</a>
+    </div>
+    <a class="btn btn-accent" href="app/index.html"><i class="ph ph-map-trifold"></i>Abrir sistema</a>
+  </nav>
+
+  <!-- =================================================================== 01 BRIEF -->
+  <section class="block" id="brief">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>01</b> El reto</div>
+          <h2 class="h2"><span class="ln"><span>Tres preguntas,</span></span><span class="ln"><span><span class="acc">un mapa.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1 scrub">Una empresa de transporte intermunicipal necesita un sistema de software para gestionar sus <strong>buses y parqueaderos</strong> dentro de los límites de <strong>Cundinamarca, Colombia</strong>. Diseñamos un sistema de información geográfica sobre <strong>PostGIS</strong> y el mapa dinámico de <strong>OpenStreetMap</strong>, documentado con el <strong>modelo de vistas arquitectónicas 4+1</strong>, y lo entregamos como sistema web y como app móvil en <strong>Cordova</strong>.</p>
+      </div>
+
+      <div class="needs">
+        <article class="need reveal">
+          <span class="letter">a</span>
+          <i class="ph ph-garage big"></i>
+          <h3>Disponibilidad de cupos</h3>
+          <p class="q">“¿Cuántos cupos libres hay ahora en cada terminal?”</p>
+          <p>Cada llegada abre un <code>parking_stay</code>; cada salida lo cierra. <code>v_parking_availability</code> compara las estadías abiertas con la capacidad máxima de cada parqueadero, y un trigger bloquea el parqueadero para que nunca se sobrepase.</p>
+        </article>
+        <article class="need reveal d1">
+          <span class="letter">b</span>
+          <i class="ph ph-bus big"></i>
+          <h3>Ubicación de buses</h3>
+          <p class="q">“¿Dónde está el bus CB-127?”</p>
+          <p>No se necesita GPS: el bus se ubica en el parqueadero de su estadía abierta. Mientras un viaje está en ruta, PostGIS estima su posición sobre el trayecto con <code>ST_LineInterpolatePoint</code> según el tiempo transcurrido.</p>
+        </article>
+        <article class="need reveal d2">
+          <span class="letter">c</span>
+          <i class="ph ph-armchair big"></i>
+          <h3>Puestos por bus</h3>
+          <p class="q">“¿Quedan puestos en el de las 13:05 a Ubaté?”</p>
+          <p>Cada <code>ticket</code> guarda un número de puesto de un viaje. Puestos disponibles = capacidad del bus − tiquetes vendidos. La base de datos rechaza puestos duplicados, puestos inexistentes y ventas después de la salida.</p>
+        </article>
+      </div>
+
+      <div class="reqs reveal" data-stagger>
+        <div class="reqs-head"><span>#</span><span>Requisito</span><span>Cómo se resuelve</span><span>Dónde</span></div>
+        <div class="req"><span class="n">R1</span><span class="r">SIG con PostGIS + OpenStreetMap</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>Supabase (PostgreSQL 17 + PostGIS) con geometrías SRID 4326; Leaflet dibuja los mosaicos de OSM.</span><span class="w"><code>database/</code> · <code>app/</code></span></div>
+        <div class="req"><span class="n">R2</span><span class="r">Modelo de vistas 4+1</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>Vistas de escenarios, lógica, de procesos, de desarrollo y física, con diagramas.</span><span class="w"><a href="#architecture">§03</a> · <code>docs/ARCHITECTURE.md</code></span></div>
+        <div class="req"><span class="n">R3</span><span class="r">Diseño de la base de datos</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>9 tablas, 6 vistas, índices espaciales GiST, triggers y funciones RPC.</span><span class="w"><a href="#database">§04</a> · <code>01–06 *.sql</code></span></div>
+        <div class="req"><span class="n">R4</span><span class="r">Solo dentro de Cundinamarca</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>Polígonos del departamento + Bogotá D.C. desde OSM; un trigger con <code>ST_Covers</code> rechaza cualquier parqueadero por fuera.</span><span class="w"><code>02_functions.sql</code></span></div>
+        <div class="req"><span class="n">R5</span><span class="r">Ubicación del bus por parqueadero</span><span class="s"><i class="ph-fill ph-check-circle ok"></i><code>parking_stay</code> abierta → ubicación; no requiere rastreo en tiempo real.</span><span class="w"><code>v_bus_location</code></span></div>
+        <div class="req"><span class="n">R6</span><span class="r">Datos del bus: origen, destino, horas, permanencia</span><span class="s"><i class="ph-fill ph-check-circle ok"></i><code>trip</code> guarda origen, destino, hora de salida, hora de llegada y tiempo de permanencia en el parqueadero.</span><span class="w">Registrar → Nuevo viaje</span></div>
+        <div class="req"><span class="n">R7</span><span class="r">El administrador registra llegadas y salidas</span><span class="s"><i class="ph-fill ph-check-circle ok"></i><code>api_register_arrival</code> / <code>api_register_departure</code>, solo para su propio parqueadero.</span><span class="w">Pestaña Registrar</span></div>
+        <div class="req"><span class="n">R8</span><span class="r">Mapa: ubicación, cupos, salidas, horarios de conductores</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>Anillos de ocupación, buses parqueados con su próxima salida y turnos de servicio de conductores por terminal.</span><span class="w">Terminales · Conductores</span></div>
+        <div class="req"><span class="n">R9</span><span class="r">App móvil con Cordova</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>El mismo código empaquetado con Cordova + plugin de geolocalización.</span><span class="w"><a href="#mobile">§06</a> · <code>mobile/</code></span></div>
+        <div class="req"><span class="n">R10</span><span class="r">Geocodificación</span><span class="s"><i class="ph-fill ph-check-circle ok"></i>Geocodificación directa/inversa con Nominatim + KNN de PostGIS para la “terminal más cercana”.</span><span class="w"><code>api_nearest_lots</code></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 02 NETWORK -->
+  <section class="block" id="network">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>02</b> La red</div>
+          <h2 class="h2"><span class="ln"><span>21 terminales.</span></span><span class="ln"><span><span class="acc">Una frontera.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1">Los parqueaderos de la empresa, exactamente como aparecen en el taller, sobre OpenStreetMap. Todo lo que está fuera de <strong>Cundinamarca y Bogotá D.C.</strong> se oscurece: la propia base de datos se niega a registrar una terminal más allá de esa línea.</p>
+      </div>
+
+      <div class="net">
+        <div class="net-map reveal">
+          <div id="netmap" aria-label="Mapa de los 21 parqueaderos"></div>
+          <span class="map-chip"><i class="ph ph-polygon"></i>Área de servicio · relaciones OSM 1305533 + 12893646</span>
+        </div>
+        <div class="net-side">
+          <div class="stats reveal d1">
+            <div class="stat"><div class="v" data-count="21">0</div><div class="l">Parqueaderos</div></div>
+            <div class="stat"><div class="v" data-count="62">0</div><div class="l">Cupos en total</div></div>
+            <div class="stat"><div class="v" data-count="8">0</div><div class="l">El mayor · Bogotá D.C.</div></div>
+            <div class="stat"><div class="v"><span id="longest">0</span><small>km</small></div><div class="l">Mayor distancia en línea recta</div></div>
+          </div>
+          <div class="lot-table reveal d2">
+            <header><span>Municipio</span><span>Capacidad</span></header>
+            <div class="lot-rows" id="lot-rows" data-stagger></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 03 ARCHITECTURE -->
+  <section class="block" id="architecture">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>03</b> Arquitectura</div>
+          <h2 class="h2"><span class="ln"><span>El modelo</span></span><span class="ln"><span><span class="acc">de vistas 4+1.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1">El modelo de Kruchten describe el sistema desde el punto de vista de cada interesado. Cuatro vistas — <strong>lógica, de procesos, de desarrollo y física</strong> — se integran y validan con una quinta: los <strong>escenarios</strong> (casos de uso).</p>
+      </div>
+
+      <div class="views-nav reveal" role="tablist">
+        <button class="vtab is-active" data-v="scenarios"><b>+1</b>Escenarios</button>
+        <button class="vtab" data-v="logical"><b>1</b>Lógica</button>
+        <button class="vtab" data-v="process"><b>2</b>Procesos</button>
+        <button class="vtab" data-v="development"><b>3</b>Desarrollo</button>
+        <button class="vtab" data-v="physical"><b>4</b>Física</button>
+      </div>
+
+      <!-- +1 Scenarios -->
+      <div class="vpanel is-active" data-v="scenarios">
+        <div>
+          <h3>Escenarios</h3>
+          <div class="who">Interesados · todos — valida las otras cuatro vistas</div>
+          <p>Casos de uso derivados del taller. Cada uno se rastrea en las demás vistas: p. ej. <em>Registrar llegada</em> se vuelve la clase <code>ParkingStay</code> (lógica), la secuencia de llegada (procesos), <code>api_register_arrival</code> (desarrollo) y una llamada del celular a Supabase (física).</p>
+          <ul>
+            <li><b>Administrador del parqueadero</b> registra llegadas, salidas e información de viajes de su terminal.</li>
+            <li><b>Despachador</b> sigue la disponibilidad, los buses en ruta y los horarios de conductores.</li>
+            <li><b>Pasajero / taquillero</b> encuentra la terminal más cercana y consulta o vende puestos.</li>
+            <li><b>Administrador del sistema</b> gestiona terminales, siempre dentro de Cundinamarca.</li>
+          </ul>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 760 470" role="img" aria-label="Diagrama de casos de uso">
+            <rect x="140" y="14" width="480" height="442" rx="18" class="d-band"/>
+            <text x="380" y="40" text-anchor="middle" class="d-h">Hush</text>
+            <!-- actors -->
+            <g class="d-actor" transform="translate(64 84)"><circle cx="0" cy="0" r="9"/><path d="M0 9V40M-16 20H16M0 40L-12 60M0 40L12 60"/></g>
+            <text x="64" y="166" text-anchor="middle" class="d-t">Admin. parqueadero</text>
+            <g class="d-actor" transform="translate(64 290)"><circle cx="0" cy="0" r="9"/><path d="M0 9V40M-16 20H16M0 40L-12 60M0 40L12 60"/></g>
+            <text x="64" y="372" text-anchor="middle" class="d-t">Despachador</text>
+            <g class="d-actor" transform="translate(696 84)"><circle cx="0" cy="0" r="9"/><path d="M0 9V40M-16 20H16M0 40L-12 60M0 40L12 60"/></g>
+            <text x="696" y="166" text-anchor="middle" class="d-t">Pasajero · taquilla</text>
+            <g class="d-actor" transform="translate(696 290)"><circle cx="0" cy="0" r="9"/><path d="M0 9V40M-16 20H16M0 40L-12 60M0 40L12 60"/></g>
+            <text x="696" y="372" text-anchor="middle" class="d-t">Admin. del sistema</text>
+            <!-- associations -->
+            <path class="d-line" d="M84 108L172 82M84 112L172 138M84 116L172 194"/>
+            <path class="d-line" d="M84 314L172 312M84 318L172 368M84 310L292 244"/>
+            <path class="d-line" d="M676 108L588 82M676 112L588 138M676 116L470 244"/>
+            <path class="d-line" d="M676 316L588 368"/>
+            <path class="d-line d-dash" d="M490 390L432 410"/>
+            <text x="476" y="412" class="d-s">«incluye»</text>
+            <!-- use cases -->
+            <ellipse cx="268" cy="82" rx="96" ry="21" class="d-uc"/><text x="268" y="86" text-anchor="middle" class="d-t">Registrar llegada del bus</text>
+            <ellipse cx="268" cy="138" rx="96" ry="21" class="d-uc"/><text x="268" y="142" text-anchor="middle" class="d-t">Registrar salida del bus</text>
+            <ellipse cx="268" cy="194" rx="96" ry="21" class="d-uc"/><text x="268" y="198" text-anchor="middle" class="d-t">Registrar datos del viaje</text>
+            <ellipse cx="381" cy="244" rx="92" ry="21" class="d-box-acc"/><text x="381" y="248" text-anchor="middle" class="d-t">Consultar cupos disponibles</text>
+            <ellipse cx="268" cy="312" rx="96" ry="21" class="d-uc"/><text x="268" y="316" text-anchor="middle" class="d-t">Ubicar buses en el mapa</text>
+            <ellipse cx="268" cy="368" rx="96" ry="21" class="d-uc"/><text x="268" y="372" text-anchor="middle" class="d-t">Horarios de conductores</text>
+            <ellipse cx="492" cy="82" rx="96" ry="21" class="d-uc"/><text x="492" y="86" text-anchor="middle" class="d-t">Consultar y vender puestos</text>
+            <ellipse cx="492" cy="138" rx="96" ry="21" class="d-uc"/><text x="492" y="142" text-anchor="middle" class="d-t">Terminal más cercana</text>
+            <text x="492" y="174" text-anchor="middle" class="d-s">(geocodificación · Nominatim + KNN)</text>
+            <ellipse cx="492" cy="368" rx="96" ry="21" class="d-uc"/><text x="492" y="372" text-anchor="middle" class="d-t">Gestionar parqueaderos</text>
+            <ellipse cx="368" cy="420" rx="108" ry="21" class="d-uc"/><text x="368" y="424" text-anchor="middle" class="d-t">Validar límites de Cundinamarca</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 1 Logical -->
+      <div class="vpanel" data-v="logical">
+        <div>
+          <h3>Vista lógica</h3>
+          <div class="who">Interesados · usuarios finales, analistas — funcionalidad</div>
+          <p>El modelo de dominio. Los objetos espaciales (<code>ServiceArea</code>, <code>ParkingLot</code>) llevan geometrías PostGIS; toda la operación cuelga del <code>Trip</code> (la “información del bus”) y del <code>ParkingStay</code> (lo que registra el administrador).</p>
+          <ul>
+            <li><code>ParkingStay</code> = una llegada + una salida → el tiempo real de permanencia.</li>
+            <li><code>Trip</code> = origen, destino, salida, llegada y permanencia planeada.</li>
+            <li><code>Ticket</code> = un puesto de un viaje → disponibilidad de puestos.</li>
+            <li><code>DriverShift</code> = horario de servicio del conductor, con base en una terminal.</li>
+          </ul>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 760 430" role="img" aria-label="Diagrama de clases">
+            <!-- relations first -->
+            <path class="d-line d-dash" d="M120 86V160"/><text x="128" y="128" class="d-s">cubre</text>
+            <text x="106" y="100" class="d-mult">1</text><text x="106" y="154" class="d-mult">*</text>
+            <path class="d-line" d="M220 204H280"/><text x="226" y="198" class="d-mult">1</text><text x="268" y="198" class="d-mult">*</text>
+            <path class="d-line" d="M380 103V160"/><text x="386" y="118" class="d-mult">1</text><text x="386" y="154" class="d-mult">*</text>
+            <path class="d-line" d="M480 70H510V200H540"/><text x="486" y="64" class="d-mult">1</text><text x="528" y="194" class="d-mult">*</text>
+            <path class="d-line" d="M640 86V160"/><text x="646" y="100" class="d-mult">*</text><text x="646" y="154" class="d-mult">1</text>
+            <path class="d-line d-line-acc" d="M540 288H250V240H220"/><text x="300" y="282" class="d-s">origen · destino</text><text x="226" y="234" class="d-mult">2</text><text x="528" y="282" class="d-mult">*</text>
+            <path class="d-line" d="M640 340V298"/><text x="646" y="312" class="d-mult">*</text><text x="646" y="336" class="d-mult">1</text>
+            <path class="d-line" d="M540 372H480"/><text x="528" y="366" class="d-mult">1</text><text x="486" y="366" class="d-mult">*</text>
+            <path class="d-line" d="M280 392H262V256H220"/><text x="200" y="406" class="d-s"></text><text x="268" y="386" class="d-mult">*</text><text x="226" y="252" class="d-mult">1</text>
+            <text x="286" y="420" class="d-s">terminal base</text>
+            <path class="d-line" d="M120 264V340"/><text x="106" y="278" class="d-mult">1</text><text x="106" y="334" class="d-mult">*</text><text x="128" y="306" class="d-s">administra</text>
+            <!-- classes -->
+            <g transform="translate(20 16)"><rect width="200" height="70" rx="10" class="d-box-acc"/><text x="12" y="20" class="d-h">ServiceArea</text><path d="M0 28H200" stroke="#FF2D9B" stroke-opacity=".5"/><text x="12" y="46" class="d-s">name</text><text x="12" y="63" class="d-s d-acc">geom : MultiPolygon</text></g>
+            <g transform="translate(20 160)"><rect width="200" height="104" rx="10" class="d-box-acc"/><text x="12" y="20" class="d-h">ParkingLot</text><path d="M0 28H200" stroke="#FF2D9B" stroke-opacity=".5"/><text x="12" y="46" class="d-s">code, municipality</text><text x="12" y="63" class="d-s">name</text><text x="12" y="80" class="d-s">capacity : 1..50</text><text x="12" y="97" class="d-s d-acc">geom : Point (4326)</text></g>
+            <g transform="translate(20 340)"><rect width="200" height="70" rx="10" class="d-box"/><text x="12" y="20" class="d-h">AppUser</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">username, full_name</text><text x="12" y="63" class="d-s">role : LOT_ADMIN | SYSTEM_ADMIN</text></g>
+            <g transform="translate(280 16)"><rect width="200" height="87" rx="10" class="d-box"/><text x="12" y="20" class="d-h">Bus</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">plate : ABC123</text><text x="12" y="63" class="d-s">internal_code, brand</text><text x="12" y="80" class="d-s">seat_capacity : 10..60</text></g>
+            <g transform="translate(280 160)"><rect width="200" height="87" rx="10" class="d-box"/><text x="12" y="20" class="d-h">ParkingStay</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">arrived_at</text><text x="12" y="63" class="d-s">departed_at [0..1]</text><text x="12" y="80" class="d-s">/ dwell_time</text></g>
+            <g transform="translate(280 340)"><rect width="200" height="70" rx="10" class="d-box"/><text x="12" y="20" class="d-h">DriverShift</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">starts_at</text><text x="12" y="63" class="d-s">ends_at (≤ 12 h)</text></g>
+            <g transform="translate(540 16)"><rect width="200" height="70" rx="10" class="d-box"/><text x="12" y="20" class="d-h">Ticket</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">seat_number</text><text x="12" y="63" class="d-s">passenger_name</text></g>
+            <g transform="translate(540 160)"><rect width="200" height="138" rx="10" class="d-box"/><text x="12" y="20" class="d-h">Trip</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">origen → destino</text><text x="12" y="63" class="d-s">scheduled_departure</text><text x="12" y="80" class="d-s">scheduled_arrival</text><text x="12" y="97" class="d-s">dwell_minutes</text><text x="12" y="114" class="d-s">salida / llegada real</text><text x="12" y="131" class="d-s">status</text></g>
+            <g transform="translate(540 340)"><rect width="200" height="70" rx="10" class="d-box"/><text x="12" y="20" class="d-h">Driver</text><path d="M0 28H200" stroke="rgba(251,239,247,.15)"/><text x="12" y="46" class="d-s">full_name, document_id</text><text x="12" y="63" class="d-s">license : C1 | C2 | C3</text></g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 2 Process -->
+      <div class="vpanel" data-v="process">
+        <div>
+          <h3>Vista de procesos</h3>
+          <div class="who">Interesados · integradores — concurrencia, desempeño</div>
+          <p>Comportamiento en ejecución del escenario más crítico: <em>registrar la llegada de un bus</em>. Toda la operación es una única transacción de PostgreSQL ejecutada por una función RPC.</p>
+          <ul>
+            <li>Concurrencia: el trigger de capacidad bloquea la fila de <code>parking_lot</code> (<code>FOR UPDATE</code>), así dos administradores no pueden ocupar el último cupo al mismo tiempo.</li>
+            <li>Los errores se lanzan en SQL y regresan como mensajes legibles.</li>
+            <li>El mapa consulta <code>api_overview()</code> cada 30 s — una sola petición trae parqueaderos, buses y estadísticas.</li>
+            <li>Los buses en ruta se reinterpolan en el cliente cada 15 s.</li>
+          </ul>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 760 470" role="img" aria-label="Diagrama de secuencia del registro de llegada">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#FBEFF7"/></marker>
+              <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#FF2D9B"/></marker>
+            </defs>
+            <g class="d-life"><path d="M70 54V456M215 54V456M375 54V456M530 54V456M685 54V456"/></g>
+            <g>
+              <rect x="10" y="12" width="120" height="42" rx="9" class="d-box"/><text x="70" y="31" text-anchor="middle" class="d-t">Admin. parqueadero</text><text x="70" y="46" text-anchor="middle" class="d-s">celular / navegador</text>
+              <rect x="150" y="12" width="130" height="42" rx="9" class="d-box"/><text x="215" y="31" text-anchor="middle" class="d-t">App Hush</text><text x="215" y="46" text-anchor="middle" class="d-s">app.js · api.js</text>
+              <rect x="305" y="12" width="140" height="42" rx="9" class="d-box"/><text x="375" y="31" text-anchor="middle" class="d-t">Supabase PostgREST</text><text x="375" y="46" text-anchor="middle" class="d-s">HTTPS · JSON</text>
+              <rect x="460" y="12" width="140" height="42" rx="9" class="d-box-acc"/><text x="530" y="31" text-anchor="middle" class="d-t">api_register_arrival</text><text x="530" y="46" text-anchor="middle" class="d-s">SECURITY DEFINER</text>
+              <rect x="620" y="12" width="130" height="42" rx="9" class="d-box"/><text x="685" y="31" text-anchor="middle" class="d-t">PostgreSQL</text><text x="685" y="46" text-anchor="middle" class="d-s">+ PostGIS · triggers</text>
+            </g>
+            <rect x="525" y="160" width="10" height="200" rx="2" fill="#FF2D9B" fill-opacity=".35"/>
+            <rect x="680" y="198" width="10" height="124" rx="2" fill="#FBEFF7" fill-opacity=".2"/>
+            <g class="d-s">
+              <path class="d-line" d="M70 88H211" marker-end="url(#arr)"/><text x="80" y="82">1 · bus, parqueadero, hora</text>
+              <path class="d-line" d="M215 126H371" marker-end="url(#arr)"/><text x="223" y="120">2 · POST /rpc/api_register_arrival</text>
+              <path class="d-line-acc" d="M375 164H521" marker-end="url(#arrA)"/><text x="383" y="158">3 · llamada (una transacción)</text>
+              <path class="d-line" d="M535 202H678" marker-end="url(#arr)"/><text x="543" y="196">4 · valida admin · cierra viaje</text>
+              <path class="d-line" d="M535 240H678" marker-end="url(#arr)"/><text x="543" y="234">5 · INSERT parking_stay</text>
+              <path class="d-line-acc" d="M690 262H730V292H694" marker-end="url(#arrA)"/>
+              <rect x="430" y="266" width="246" height="34" rx="6" class="d-bg"/>
+              <text x="672" y="280" text-anchor="end" class="d-acc">6 · trigger: bloquea FOR UPDATE</text>
+              <text x="672" y="296" text-anchor="end">¿ocupados &lt; capacidad? si no, RAISE</text>
+              <path class="d-line d-dash" d="M680 326H539" marker-end="url(#arr)"/><text x="672" y="320" text-anchor="end">7 · stay_id  |  “parqueadero lleno”</text>
+              <path class="d-line d-dash" d="M525 364H379" marker-end="url(#arr)"/><text x="517" y="358" text-anchor="end">8 · resultado JSON / error</text>
+              <path class="d-line d-dash" d="M371 402H219" marker-end="url(#arr)"/><text x="363" y="396" text-anchor="end">9 · 200 OK  |  400 + mensaje</text>
+              <path class="d-line d-dash" d="M211 440H74" marker-end="url(#arr)"/><text x="205" y="434" text-anchor="end">10 · aviso + refresca el mapa</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 3 Development -->
+      <div class="vpanel" data-v="development">
+        <div>
+          <h3>Vista de desarrollo</h3>
+          <div class="who">Interesados · programadores — organización del código</div>
+          <p>Capas y los archivos que las implementan. Las reglas de negocio viven <strong>en la base de datos</strong>, así el sistema web, la app Cordova y cualquier cliente futuro obedecen exactamente las mismas reglas.</p>
+          <ul>
+            <li><code>app/</code> se comparte tal cual entre la web y la app móvil (<code>npm run sync</code>).</li>
+            <li><code>api.js</code> es el único módulo que habla con la red.</li>
+            <li>El SQL se versiona en orden: esquema → reglas → vistas → datos → API.</li>
+          </ul>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 760 470" role="img" aria-label="Diagrama de componentes por capas">
+            <defs><marker id="arrD" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L5 10L10 0z" fill="rgba(251,239,247,.5)"/></marker></defs>
+            <g>
+              <rect x="10" y="10" width="740" height="76" rx="12" class="d-band"/><text x="24" y="44" class="d-h">Presentación</text><text x="24" y="62" class="d-s">HTML · CSS</text>
+              <rect x="160" y="22" width="180" height="52" rx="9" class="d-box"/><text x="250" y="44" text-anchor="middle" class="d-t">Página de inicio</text><text x="250" y="61" text-anchor="middle" class="d-s">index.html</text>
+              <rect x="356" y="22" width="180" height="52" rx="9" class="d-box"/><text x="446" y="44" text-anchor="middle" class="d-t">Sistema web</text><text x="446" y="61" text-anchor="middle" class="d-s">app/index.html · app.css</text>
+              <rect x="552" y="22" width="186" height="52" rx="9" class="d-box"/><text x="645" y="44" text-anchor="middle" class="d-t">App Cordova</text><text x="645" y="61" text-anchor="middle" class="d-s">mobile/www + geolocation</text>
+
+              <rect x="10" y="100" width="740" height="76" rx="12" class="d-band"/><text x="24" y="134" class="d-h">Lógica cliente</text><text x="24" y="152" class="d-s">JavaScript</text>
+              <rect x="160" y="112" width="180" height="52" rx="9" class="d-box"/><text x="250" y="134" text-anchor="middle" class="d-t">app.js</text><text x="250" y="151" text-anchor="middle" class="d-s">estado · paneles · formularios</text>
+              <rect x="356" y="112" width="180" height="52" rx="9" class="d-box"/><text x="446" y="134" text-anchor="middle" class="d-t">Leaflet 1.9</text><text x="446" y="151" text-anchor="middle" class="d-s">mosaicos OpenStreetMap</text>
+              <rect x="552" y="112" width="186" height="52" rx="9" class="d-box-acc"/><text x="645" y="134" text-anchor="middle" class="d-t">api.js</text><text x="645" y="151" text-anchor="middle" class="d-s">supabase-js · Nominatim</text>
+
+              <rect x="10" y="190" width="740" height="76" rx="12" class="d-band"/><text x="24" y="224" class="d-h">API</text><text x="24" y="242" class="d-s">Supabase</text>
+              <rect x="160" y="202" width="180" height="52" rx="9" class="d-box"/><text x="250" y="224" text-anchor="middle" class="d-t">PostgREST</text><text x="250" y="241" text-anchor="middle" class="d-s">/rest/v1 · /rpc</text>
+              <rect x="356" y="202" width="180" height="52" rx="9" class="d-box"/><text x="446" y="224" text-anchor="middle" class="d-t">Políticas RLS</text><text x="446" y="241" text-anchor="middle" class="d-s">solo lectura para clientes</text>
+              <rect x="552" y="202" width="186" height="52" rx="9" class="d-box-acc"/><text x="645" y="224" text-anchor="middle" class="d-t">funciones api_*</text><text x="645" y="241" text-anchor="middle" class="d-s">06_api.sql</text>
+
+              <rect x="10" y="280" width="740" height="76" rx="12" class="d-band"/><text x="24" y="314" class="d-h">Reglas</text><text x="24" y="332" class="d-s">PL/pgSQL</text>
+              <rect x="160" y="292" width="278" height="52" rx="9" class="d-box"/><text x="299" y="314" text-anchor="middle" class="d-t">fn_register_arrival / departure</text><text x="299" y="331" text-anchor="middle" class="d-s">02_functions.sql</text>
+              <rect x="454" y="292" width="284" height="52" rx="9" class="d-box"/><text x="596" y="314" text-anchor="middle" class="d-t">Triggers</text><text x="596" y="331" text-anchor="middle" class="d-s">límites · capacidad · traslapes · puestos</text>
+
+              <rect x="10" y="370" width="740" height="88" rx="12" class="d-band"/><text x="24" y="404" class="d-h">Datos</text><text x="24" y="422" class="d-s">PostgreSQL 17</text>
+              <rect x="160" y="382" width="134" height="62" rx="9" class="d-box"/><text x="227" y="408" text-anchor="middle" class="d-t">Tablas</text><text x="227" y="425" text-anchor="middle" class="d-s">01_schema.sql</text>
+              <rect x="306" y="382" width="134" height="62" rx="9" class="d-box"/><text x="373" y="408" text-anchor="middle" class="d-t">Vistas</text><text x="373" y="425" text-anchor="middle" class="d-s">03_views.sql</text>
+              <rect x="452" y="382" width="134" height="62" rx="9" class="d-box-acc"/><text x="519" y="408" text-anchor="middle" class="d-t">PostGIS</text><text x="519" y="425" text-anchor="middle" class="d-s">geometry · GiST</text>
+              <rect x="598" y="382" width="140" height="62" rx="9" class="d-box"/><text x="668" y="408" text-anchor="middle" class="d-t">Datos semilla</text><text x="668" y="425" text-anchor="middle" class="d-s">04 · 05 *.sql</text>
+            </g>
+            <g class="d-line"><path d="M645 74V108" marker-end="url(#arrD)"/><path d="M446 74V108" marker-end="url(#arrD)"/><path d="M645 164V198" marker-end="url(#arrD)"/><path d="M645 254V288" marker-end="url(#arrD)"/><path d="M299 254V288" marker-end="url(#arrD)"/><path d="M596 344V378" marker-end="url(#arrD)"/><path d="M299 344V378" marker-end="url(#arrD)"/></g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 4 Physical -->
+      <div class="vpanel" data-v="physical">
+        <div>
+          <h3>Vista física</h3>
+          <div class="who">Interesados · ingenieros de sistemas — despliegue, topología</div>
+          <p>Dónde corre cada pieza. Los clientes son livianos: dibujan el mapa OSM y llaman a la API de Supabase por HTTPS. El único servidor es el proyecto administrado de Supabase, desplegado en la región us-east-1 (Virginia, EE. UU.).</p>
+          <ul>
+            <li>Celulares: WebView de Cordova + GPS del dispositivo (plugin de geolocalización).</li>
+            <li>Supabase: API PostgREST delante de PostgreSQL 17 + PostGIS 3.</li>
+            <li>OpenStreetMap: mosaicos raster y geocodificación con Nominatim.</li>
+            <li>Sin servidor de aplicaciones que mantener.</li>
+          </ul>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 760 440" role="img" aria-label="Diagrama de despliegue">
+            <defs><marker id="arrP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#FBEFF7"/></marker></defs>
+            <!-- client bus -->
+            <path class="d-line" d="M236 92V326"/>
+            <path class="d-line" d="M220 92H236M220 326H236"/>
+            <path class="d-line-acc" d="M236 210H300" marker-end="url(#arrP)"/><text x="244" y="202" class="d-s">HTTPS · JSON</text>
+            <path class="d-line" d="M236 120H262V60H586" marker-end="url(#arrP)"/><text x="300" y="52" class="d-s">HTTPS · mosaicos PNG</text>
+            <path class="d-line" d="M236 150H262V96H556V210H586" marker-end="url(#arrP)"/><text x="300" y="90" class="d-s">HTTPS · geocodificación (directa / inversa)</text>
+            <path class="d-line" d="M236 300H262V362H586" marker-end="url(#arrP)"/><text x="300" y="378" class="d-s">HTTPS · JS / CSS / fonts</text>
+            <!-- nodes -->
+            <g transform="translate(20 40)"><path d="M0 12L12 0H212L200 12Z" fill="rgba(251,239,247,.08)"/><path d="M200 12L212 0V108L200 120Z" fill="rgba(251,239,247,.05)"/><rect y="12" width="200" height="108" rx="4" class="d-box"/><text x="14" y="36" class="d-h">Celular</text><text x="14" y="54" class="d-s">Android / iOS</text><rect x="14" y="64" width="172" height="22" rx="5" class="d-box-acc"/><text x="100" y="79" text-anchor="middle" class="d-s">Cordova WebView · app/</text><rect x="14" y="90" width="172" height="22" rx="5" class="d-box"/><text x="100" y="105" text-anchor="middle" class="d-s">GPS · geolocation plugin</text></g>
+            <g transform="translate(20 268)"><path d="M0 12L12 0H212L200 12Z" fill="rgba(251,239,247,.08)"/><path d="M200 12L212 0V108L200 120Z" fill="rgba(251,239,247,.05)"/><rect y="12" width="200" height="108" rx="4" class="d-box"/><text x="14" y="36" class="d-h">Estación de trabajo</text><text x="14" y="54" class="d-s">Chrome · Edge · Firefox</text><rect x="14" y="64" width="172" height="22" rx="5" class="d-box-acc"/><text x="100" y="79" text-anchor="middle" class="d-s">Sistema web · app/</text><rect x="14" y="90" width="172" height="22" rx="5" class="d-box"/><text x="100" y="105" text-anchor="middle" class="d-s">Inicio · index.html</text></g>
+            <g transform="translate(300 118)"><path d="M0 14L14 0H254L240 14Z" fill="rgba(255,45,155,.18)"/><path d="M240 14L254 0V170L240 184Z" fill="rgba(255,45,155,.1)"/><rect y="14" width="240" height="170" rx="4" class="d-box-acc"/><text x="14" y="40" class="d-h">Nube Supabase</text><text x="14" y="58" class="d-s">región us-east-1 · Virginia</text><rect x="14" y="70" width="212" height="28" rx="6" class="d-box"/><text x="120" y="89" text-anchor="middle" class="d-t">PostgREST API · RLS</text><path class="d-line" d="M120 98V112" marker-end="url(#arrP)"/><rect x="14" y="114" width="212" height="52" rx="6" class="d-box"/><text x="120" y="136" text-anchor="middle" class="d-t">PostgreSQL 17</text><text x="120" y="154" text-anchor="middle" class="d-s">PostGIS 3 · plpgsql</text></g>
+            <g transform="translate(590 26)"><rect width="156" height="66" rx="8" class="d-box"/><text x="12" y="26" class="d-t">OpenStreetMap</text><text x="12" y="44" class="d-s">tile.openstreetmap.org</text><text x="12" y="58" class="d-s">mosaicos raster · ODbL</text></g>
+            <g transform="translate(590 176)"><rect width="156" height="66" rx="8" class="d-box"/><text x="12" y="26" class="d-t">Nominatim</text><text x="12" y="44" class="d-s">nominatim.openstreetmap.org</text><text x="12" y="58" class="d-s">API de geocodificación</text></g>
+            <g transform="translate(590 328)"><rect width="156" height="66" rx="8" class="d-box"/><text x="12" y="26" class="d-t">CDNs</text><text x="12" y="44" class="d-s">unpkg · jsDelivr</text><text x="12" y="58" class="d-s">Google Fonts</text></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 04 DATABASE -->
+  <section class="block" id="database">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>04</b> Base de datos</div>
+          <h2 class="h2"><span class="ln"><span>PostGIS hace</span></span><span class="ln"><span><span class="acc">el trabajo.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1 scrub">Nueve tablas en PostgreSQL + PostGIS (SRID 4326). Las reglas del negocio se imponen <strong>dentro de la base de datos</strong> — triggers, restricciones y funciones — para que ningún cliente pueda meter un bus en una terminal llena ni crear una terminal fuera de Cundinamarca.</p>
+      </div>
+
+      <div class="er">
+        <div class="tbl geo reveal"><h4>service_area <span>límites</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">name<span class="tag uq">UQ</span></span><span class="ty">varchar(80)</span></li>
+          <li><span class="col">geom<span class="tag gis">GIS</span></span><span class="ty">MultiPolygon 4326</span></li></ul></div>
+        <div class="tbl geo reveal d1"><h4>parking_lot <span>terminales</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">code<span class="tag uq">UQ</span></span><span class="ty">varchar(4)</span></li>
+          <li><span class="col">municipality<span class="tag uq">UQ</span></span><span class="ty">varchar(60)</span></li>
+          <li><span class="col">name</span><span class="ty">varchar(120)</span></li>
+          <li><span class="col">capacity</span><span class="ty">smallint 1..50</span></li>
+          <li><span class="col">geom<span class="tag gis">GIS</span></span><span class="ty">Point 4326 · GiST</span></li></ul></div>
+        <div class="tbl reveal d2"><h4>bus <span>flota</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">plate<span class="tag uq">UQ</span></span><span class="ty">^[A-Z]{3}[0-9]{3}$</span></li>
+          <li><span class="col">internal_code<span class="tag uq">UQ</span></span><span class="ty">varchar(10)</span></li>
+          <li><span class="col">brand · model_year</span><span class="ty">varchar · smallint</span></li>
+          <li><span class="col">seat_capacity</span><span class="ty">smallint 10..60</span></li>
+          <li><span class="col">active</span><span class="ty">boolean</span></li></ul></div>
+        <div class="tbl reveal"><h4>trip <span>información del bus</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">bus_id<span class="tag fk">FK</span></span><span class="ty">→ bus</span></li>
+          <li><span class="col">driver_id<span class="tag fk">FK</span></span><span class="ty">→ driver</span></li>
+          <li><span class="col">origin_lot_id<span class="tag fk">FK</span></span><span class="ty">→ parking_lot</span></li>
+          <li><span class="col">destination_lot_id<span class="tag fk">FK</span></span><span class="ty">→ parking_lot</span></li>
+          <li><span class="col">scheduled_departure</span><span class="ty">timestamptz</span></li>
+          <li><span class="col">scheduled_arrival</span><span class="ty">timestamptz</span></li>
+          <li><span class="col">dwell_minutes</span><span class="ty">smallint</span></li>
+          <li><span class="col">actual_departure · arrival</span><span class="ty">timestamptz</span></li>
+          <li><span class="col">status</span><span class="ty">SCHEDULED…ARRIVED</span></li></ul></div>
+        <div class="tbl reveal d1"><h4>parking_stay <span>llegadas · salidas</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">bus_id<span class="tag fk">FK</span></span><span class="ty">→ bus</span></li>
+          <li><span class="col">parking_lot_id<span class="tag fk">FK</span></span><span class="ty">→ parking_lot</span></li>
+          <li><span class="col">arrival_trip_id<span class="tag fk">FK</span></span><span class="ty">→ trip</span></li>
+          <li><span class="col">departure_trip_id<span class="tag fk">FK</span></span><span class="ty">→ trip</span></li>
+          <li><span class="col">arrived_at</span><span class="ty">timestamptz</span></li>
+          <li><span class="col">departed_at</span><span class="ty">timestamptz NULL</span></li>
+          <li><span class="col">*_registered_by<span class="tag fk">FK</span></span><span class="ty">→ app_user</span></li></ul></div>
+        <div class="tbl reveal d2"><h4>ticket <span>puestos</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">trip_id<span class="tag fk">FK</span></span><span class="ty">→ trip</span></li>
+          <li><span class="col">seat_number</span><span class="ty">UQ (trip, seat)</span></li>
+          <li><span class="col">passenger_name</span><span class="ty">varchar(120)</span></li>
+          <li><span class="col">sold_at</span><span class="ty">timestamptz</span></li></ul></div>
+        <div class="tbl reveal"><h4>driver <span>conductores</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">document_id<span class="tag uq">UQ</span></span><span class="ty">varchar(20)</span></li>
+          <li><span class="col">full_name · phone</span><span class="ty">varchar</span></li>
+          <li><span class="col">license_category</span><span class="ty">C1 · C2 · C3</span></li></ul></div>
+        <div class="tbl reveal d1"><h4>driver_shift <span>horarios</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">driver_id<span class="tag fk">FK</span></span><span class="ty">→ driver</span></li>
+          <li><span class="col">base_lot_id<span class="tag fk">FK</span></span><span class="ty">→ parking_lot</span></li>
+          <li><span class="col">starts_at · ends_at</span><span class="ty">≤ 12 h, sin traslapes</span></li></ul></div>
+        <div class="tbl reveal d2"><h4>app_user <span>administradores</span></h4><ul>
+          <li><span class="col">id<span class="tag pk">PK</span></span><span class="ty">serial</span></li>
+          <li><span class="col">username<span class="tag uq">UQ</span></span><span class="ty">varchar(40)</span></li>
+          <li><span class="col">role</span><span class="ty">LOT_ADMIN · SYSTEM_ADMIN</span></li>
+          <li><span class="col">parking_lot_id<span class="tag fk">FK</span></span><span class="ty">→ parking_lot</span></li></ul></div>
+      </div>
+
+      <div class="rules">
+        <article class="rule reveal">
+          <h5><i class="ph ph-polygon"></i>Solo dentro de Cundinamarca</h5>
+          <p>Cada terminal se valida contra los polígonos del departamento importados de OpenStreetMap.</p>
+<pre class="sql"><span class="k">CREATE FUNCTION</span> <span class="f">fn_in_service_area</span>(p geometry) <span class="k">RETURNS</span> boolean <span class="k">AS</span> $$
+  <span class="k">SELECT EXISTS</span> (<span class="k">SELECT</span> 1 <span class="k">FROM</span> service_area sa
+                 <span class="k">WHERE</span> <span class="f">ST_Covers</span>(sa.geom, p));
+$$;
+<span class="c">-- BEFORE INSERT OR UPDATE OF geom ON parking_lot</span>
+<span class="c">-- → RAISE 'La ubicación está fuera de Cundinamarca'</span></pre>
+        </article>
+        <article class="rule reveal d1">
+          <h5><i class="ph ph-garage"></i>Nunca sobre la capacidad</h5>
+          <p>La fila del parqueadero se bloquea antes de contar, así las llegadas concurrentes se serializan.</p>
+<pre class="sql"><span class="k">SELECT</span> capacity <span class="k">INTO</span> v_capacity <span class="k">FROM</span> parking_lot
+ <span class="k">WHERE</span> id = NEW.parking_lot_id <span class="k">FOR UPDATE</span>;
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">INTO</span> v_occupied <span class="k">FROM</span> parking_stay
+ <span class="k">WHERE</span> parking_lot_id = NEW.parking_lot_id
+   <span class="k">AND</span> departed_at <span class="k">IS NULL</span>;
+<span class="k">IF</span> v_occupied &gt;= v_capacity <span class="k">THEN RAISE EXCEPTION</span> <span class="s">'El parqueadero % está lleno'</span>…</pre>
+        </article>
+        <article class="rule reveal">
+          <h5><i class="ph ph-crosshair"></i>Terminal más cercana (KNN)</h5>
+          <p>Dirección geocodificada → terminales más cercanas usando el índice GiST y el operador de distancia <code>&lt;-&gt;</code>.</p>
+<pre class="sql"><span class="k">SELECT</span> code, municipality, available,
+       <span class="f">ST_DistanceSphere</span>(pl.geom, q.g) / 1000 <span class="k">AS</span> km
+  <span class="k">FROM</span> parking_lot pl <span class="k">JOIN</span> v_parking_availability <span class="k">USING</span> (id)
+ <span class="k">ORDER BY</span> pl.geom <span class="k">&lt;-&gt;</span> <span class="f">ST_SetSRID</span>(<span class="f">ST_MakePoint</span>(lng, lat), 4326)
+ <span class="k">LIMIT</span> 3;</pre>
+        </article>
+        <article class="rule reveal d1">
+          <h5><i class="ph ph-path"></i>Posición estimada en ruta</h5>
+          <p>No se requiere rastreo en tiempo real; mientras está en ruta, el bus se ubica sobre su trayecto según el tiempo transcurrido.</p>
+<pre class="sql"><span class="f">ST_LineInterpolatePoint</span>(
+  <span class="f">ST_MakeLine</span>(origin.geom, destination.geom),
+  <span class="f">LEAST</span>(1, <span class="f">GREATEST</span>(0,
+    <span class="f">extract</span>(epoch <span class="k">FROM</span> <span class="f">now</span>() - t.actual_departure) /
+    <span class="f">extract</span>(epoch <span class="k">FROM</span> t.scheduled_arrival - t.scheduled_departure))))</pre>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 05 SYSTEM -->
+  <section class="block" id="system">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>05</b> El sistema</div>
+          <h2 class="h2" style="font-size: clamp(38px, 5.2vw, 74px)"><span class="ln"><span>En vivo, sobre</span></span><span class="ln"><span><span class="acc">OpenStreetMap.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1 scrub">Este es el sistema de información real funcionando contra la base de datos en Supabase — no es una maqueta. Abra una terminal, registre una salida, venda un puesto o busque una dirección: cada acción pasa por las reglas de PostGIS de arriba.</p>
+      </div>
+
+      <div class="browser scrolly-tilt">
+        <div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url"><b>hush</b> · centro de control</span><a class="btn btn-line" href="app/index.html" style="padding:8px 12px"><i class="ph ph-arrows-out"></i>Pantalla completa</a></div>
+        <iframe src="app/index.html" title="Centro de control Hush" loading="lazy" allow="geolocation"></iframe>
+      </div>
+
+      <div class="live-feats">
+        <div class="lf reveal"><i class="ph ph-garage"></i><h4>Terminales</h4><p>Cupos libres, buses parqueados, permanencia, próximas salidas, llegadas y turnos de conductores por terminal.</p></div>
+        <div class="lf reveal d1"><i class="ph ph-bus"></i><h4>En vivo</h4><p>Un bus 3D recorre la vía real (OSRM) según la hora; síguelo con la cámara o acelera el reloj ×30 a ×600.</p></div>
+        <div class="lf reveal d2"><i class="ph ph-clipboard-text"></i><h4>Registrar</h4><p>Llegadas, salidas y nuevos viajes con origen, destino, horas y permanencia.</p></div>
+        <div class="lf reveal d3"><i class="ph ph-armchair"></i><h4>Puestos</h4><p>Mapa de puestos por bus y viaje; venda un puesto y vea cómo se actualiza la disponibilidad.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 06 MOBILE -->
+  <section class="block" id="mobile">
+    <div class="wrap mobile">
+      <div>
+        <div class="reveal">
+          <div class="kicker"><b>06</b> App móvil</div>
+          <h2 class="h2"><span class="ln"><span>En el bolsillo</span></span><span class="ln"><span><span class="acc">de cada admin.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1">La app móvil está hecha con <strong>Apache Cordova</strong>. Empaqueta exactamente el mismo código del sistema web, cambia a un panel inferior deslizable en pantallas pequeñas y usa el GPS del dispositivo para encontrar la terminal más cercana.</p>
+        <ol class="steps reveal d2" data-stagger>
+          <li><b>Mismo código.</b> <code>npm run sync</code> copia <code>app/</code> en <code>mobile/www</code> e inyecta <code>cordova.js</code>.</li>
+          <li><b>GPS nativo.</b> <code>cordova-plugin-geolocation</code> alimenta la consulta KNN de “terminal más cercana”.</li>
+          <li><b>Hecha para el patio.</b> Botones grandes, navegación inferior a una mano, funciona en Android 7+.</li>
+        </ol>
+        <div class="term reveal d3">
+          <header><i class="ph ph-terminal-window"></i>mobile/</header>
+<pre><span class="p">$ </span>npm install
+<span class="p">$ </span>npm run sync              <span class="c"># app/ → www/</span>
+<span class="p">$ </span>npx cordova platform add android
+<span class="p">$ </span>npx cordova run android   <span class="c"># o: npm run browser</span></pre>
+        </div>
+      </div>
+      <div class="phone scrolly-phone">
+        <iframe src="app/index.html" title="Vista previa de la app móvil Hush" loading="lazy" allow="geolocation"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================== 07 RUN -->
+  <section class="block" id="run">
+    <div class="wrap">
+      <div class="split">
+        <div class="reveal">
+          <div class="kicker"><b>07</b> Ejecutar</div>
+          <h2 class="h2"><span class="ln"><span>Cuatro pasos</span></span><span class="ln"><span><span class="acc">a la carretera.</span></span></span></h2>
+        </div>
+        <p class="lead reveal d1">Sin servidor de aplicaciones: la base de datos es un proyecto de Supabase y los clientes son archivos estáticos.</p>
+      </div>
+      <div class="run">
+        <div class="run-card reveal"><div class="n">01</div><h4>Base de datos</h4><p>Cree un proyecto en Supabase y ejecute <code>database/01…06_*.sql</code> en orden (editor SQL o migraciones).</p></div>
+        <div class="run-card reveal d1"><div class="n">02</div><h4>Conectar</h4><p>Pegue la URL del proyecto y la llave pública en <code>app/js/config.js</code>.</p></div>
+        <div class="run-card reveal d2"><div class="n">03</div><h4>Servir</h4><p>Sirva la carpeta (p. ej. <code>npx serve .</code>) y abra esta página o <code>app/</code>.</p></div>
+        <div class="run-card reveal d3"><div class="n">04</div><h4>Móvil</h4><p>En <code>mobile/</code>: <code>npm install</code>, <code>npm run sync</code>, <code>cordova run android</code>.</p></div>
+      </div>
+<div class="tree reveal"><span class="d">Taller2/</span>
+├── <span class="d">index.html</span>            <span class="c">esta página de inicio</span>
+├── <span class="d">app/</span>                  <span class="c">sistema de información web (Leaflet + supabase-js)</span>
+├── <span class="d">mobile/</span>               <span class="c">proyecto Cordova (config.xml, script de sincronización)</span>
+├── <span class="d">database/</span>             <span class="c">01 esquema · 02 reglas · 03 vistas · 04 límites · 05 datos · 06 API</span>
+├── <span class="d">docs/ARCHITECTURE.md</span>  <span class="c">las vistas 4+1 por escrito</span>
+└── <span class="d">assets/</span>               <span class="c">video del hero, datos de la red</span></div>
+    </div>
+  </section>
+
+  <!-- =================================================================== FOOTER -->
+  <footer>
+    <div class="wrap foot">
+      <div>
+        <img class="foot-icon" src="assets/media/hush-icon.webp" alt="" width="64" height="64">
+        <p class="big">Hush<span>.</span></p>
+        <p class="slogan">“Reescribe las reglas del campo de batalla.”</p>
+        <p>Taller 2 — Geocodificación y uso de mapas dinámicos.<br>Profesor: Carlos Armando López Solano, MSc.</p>
+      </div>
+      <div>
+        <h6>Bibliografía sugerida</h6>
+        <ul>
+          <li>J. A. E. García Álvarez, “Así funciona el GPS,” 2015. [Online]. Available: <a href="https://goo.gl/eXsp7K">goo.gl/eXsp7K</a>.</li>
+          <li>C. Beatty, “Location-Based Services: Navigation for the Masses, At Last!” <em>Journal of Navigation</em>, 2002. [Online]. Available: <a href="https://goo.gl/uXwEwI">goo.gl/uXwEwI</a>.</li>
+          <li>P. Kruchten, “The 4+1 View Model of Architecture,” <em>IEEE Software</em>, 1995.</li>
+        </ul>
+      </div>
+      <div>
+        <h6>Créditos</h6>
+        <p class="dev-label">Desarrolladores de la página</p>
+        <ul class="devs">
+          <li>Andres Camilo Aldana Cantor</li>
+          <li>David Alejandro Castro Peña</li>
+          <li>Alejandro Agudelo Quintero</li>
+        </ul>
+        <ul>
+          <li>Datos del mapa © colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL).</li>
+          <li>Video del hero: “Buses and cars in the freeway”, <a href="https://mixkit.co/">Mixkit</a>.</li>
+          <li>Íconos: <a href="https://phosphoricons.com/">Phosphor Icons</a>. Mapa: <a href="https://leafletjs.com/">Leaflet</a>.</li>
+          <li>Temática, ícono y eslogan de Hush © <a href="https://playvalorant.com/">Riot Games</a> · uso académico.</li>
+          <li>Base de datos: <a href="https://supabase.com/">Supabase</a> · <a href="https://postgis.net/">PostGIS</a>.</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="assets/js/network-data.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ---------- hero stage scale (unitless numbers for transform: scale) ----------
+    const hero0 = document.getElementById('top');
+    function scaleStage() {
+      const w = window.innerWidth, h = hero0.clientHeight || window.innerHeight;
+      document.documentElement.style.setProperty('--s', Math.min(h / 800, w / 716));
+      document.documentElement.style.setProperty('--cover', Math.max(w / 1280, h / 800));
+    }
+    scaleStage();
+    window.addEventListener('resize', scaleStage);
+
+    // ---------- nav appears after the hero ----------
+    const nav = document.getElementById('nav');
+    const hero = document.getElementById('top');
+    new IntersectionObserver(([e]) => nav.classList.toggle('is-on', !e.isIntersecting), { threshold: 0.12 }).observe(hero);
+
+    const links = Array.from(document.querySelectorAll('.nav-links a'));
+    const sections = links.map((a) => document.querySelector(a.getAttribute('href')));
+    const spy = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) links.forEach((a) => a.classList.toggle('is-current', a.getAttribute('href') === '#' + e.target.id));
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    sections.forEach((s) => s && spy.observe(s));
+
+    // ---------- reveal on scroll ----------
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+    // ---------- 4+1 tabs ----------
+    document.querySelectorAll('.vtab').forEach((t) => t.addEventListener('click', () => {
+      document.querySelectorAll('.vtab').forEach((x) => x.classList.toggle('is-active', x === t));
+      document.querySelectorAll('.vpanel').forEach((p) => p.classList.toggle('is-active', p.dataset.v === t.dataset.v));
+    }));
+
+    // ---------- network map ----------
+    const N = window.NETWORK;
+    const R = Math.PI / 180;
+    const km = (a, b) => {
+      const h = Math.sin((b.lat - a.lat) * R / 2) ** 2 + Math.cos(a.lat * R) * Math.cos(b.lat * R) * Math.sin((b.lng - a.lng) * R / 2) ** 2;
+      return 2 * 6371 * Math.asin(Math.sqrt(h));
+    };
+    let longest = 0;
+    N.lots.forEach((a) => N.lots.forEach((b) => { longest = Math.max(longest, km(a, b)); }));
+    document.getElementById('longest').dataset.count = Math.round(longest);
+
+    const map = L.map('netmap', { scrollWheelZoom: false, zoomControl: true, attributionControl: true, zoomSnap: 0.25 }).setView([4.85, -74.1], 8);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18, className: 'tiles-night',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    const holes = [];
+    N.area.features.forEach((f) => holes.push(f.geometry.coordinates[0].map((c) => [c[1], c[0]])));
+    L.polygon([[[-89, -179], [-89, 179], [89, 179], [89, -179]]].concat(holes), { stroke: false, fillColor: '#0B0610', fillOpacity: 0.62, interactive: false, renderer: L.svg({ padding: 3 }) }).addTo(map);
+    const outline = L.geoJSON(N.area, { style: { color: '#FBEFF7', weight: 1.3, opacity: 0.65, dashArray: '3 6', fill: false }, interactive: false }).addTo(map);
+
+    const markers = {};
+    N.lots.forEach((l) => {
+      const m = L.circleMarker([l.lat, l.lng], {
+        radius: 5 + l.capacity * 1.6, className: 'lot-dot', color: '#FF2D9B', weight: 2, fillColor: '#FF2D9B', fillOpacity: 0.28
+      }).addTo(map);
+      m.bindTooltip('<b>' + l.municipality + '</b><br>' + l.capacity + ' cupos · ' + l.lat.toFixed(6) + ', ' + l.lng.toFixed(6), { className: 'tip', direction: 'top' });
+      markers[l.code] = m;
+    });
+
+    function fit() {
+      map.invalidateSize();
+      const s = map.getSize();
+      if (!s.x || !s.y) return setTimeout(fit, 250);
+      map.fitBounds(outline.getBounds(), { padding: [18, 18] });
+    }
+    fit();
+    window.addEventListener('resize', () => map.invalidateSize());
+
+    const rows = document.getElementById('lot-rows');
+    N.lots.slice().sort((a, b) => b.capacity - a.capacity || a.municipality.localeCompare(b.municipality)).forEach((l) => {
+      const r = document.createElement('div');
+      r.className = 'lot-row';
+      r.innerHTML = '<span class="c">' + l.code + '</span><span><span class="m">' + l.municipality + '</span><br><span class="xy">' + l.lat.toFixed(6) + ', ' + l.lng.toFixed(6) + '</span></span>' +
+        '<span class="cap">' + '<i></i>'.repeat(l.capacity) + '</span>';
+      r.addEventListener('mouseenter', () => { markers[l.code].setStyle({ fillOpacity: 0.85, weight: 3 }).openTooltip(); });
+      r.addEventListener('mouseleave', () => { markers[l.code].setStyle({ fillOpacity: 0.28, weight: 2 }).closeTooltip(); });
+      r.addEventListener('click', () => map.flyTo([l.lat, l.lng], 11, { duration: 0.8 }));
+      rows.appendChild(r);
+    });
+
+
+    // ---------- motion layer ----------
+    // scroll progress + hero parallax (one rAF per scroll burst)
+    const progressBar = document.querySelector('.scroll-progress');
+    const heroVideo = document.querySelector('.bg');
+    const heroStage = document.querySelector('.stage');
+    let ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const y = window.scrollY;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        progressBar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, y / max) : 0).toFixed(4) + ')';
+        if (!reduce) {
+          const k = Math.min(1, y / (hero.offsetHeight || 1));
+          heroVideo.style.setProperty('--vz', (1 + k * 0.08).toFixed(4));
+          heroStage.style.setProperty('--fade', (1 - Math.min(1, k * 1.6)).toFixed(3));
+        }
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // pointer spotlight on cards
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      document.querySelectorAll('.need, .rule, .lf, .run-card, .tbl, .stat').forEach((c) => {
+        c.addEventListener('pointermove', (e) => {
+          const r = c.getBoundingClientRect();
+          c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+          c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+        });
+      });
+    }
+
+    // municipalities ticker (track duplicated for a seamless loop)
+    const track = document.querySelector('.ticker-track');
+    const oneLap = N.lots.slice().sort((a, b) => a.municipality.localeCompare(b.municipality))
+      .map((l) => '<span>' + l.municipality + ' <b>' + l.capacity + ' cupos</b><i class="ph-fill ph-bus"></i></span>').join('');
+    track.innerHTML = oneLap + oneLap;
+
+    // hub flow lines: Bogotá D.C. → every terminal
+    const hub = N.lots.find((l) => l.code === 'BOG');
+    N.lots.filter((l) => l !== hub).forEach((l) => {
+      L.polyline([[hub.lat, hub.lng], [l.lat, l.lng]], { color: '#FF2D9B', weight: 1.4, opacity: 0.55, className: 'flow-line', interactive: false }).addTo(map);
+    });
+
+    // 4+1 diagrams: draw the connectors and lift the boxes when a view opens
+    function playDiagram(panel) {
+      if (reduce || !panel || !panel.animate) return;
+      const svg = panel.querySelector('svg');
+      if (!svg) return;
+      svg.querySelectorAll('path.d-line:not(.d-dash), path.d-line-acc, g.d-line > path').forEach((p, i) => {
+        p.setAttribute('pathLength', '1');
+        p.animate([{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }],
+          { duration: 900, delay: 120 + i * 35, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'backwards' });
+      });
+      Array.from(svg.children).filter((el) => el.tagName !== 'defs' && !el.matches('path')).forEach((g, i) => {
+        g.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
+          { duration: 500, delay: Math.min(i * 30, 600), easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'backwards' });
+      });
+    }
+    document.querySelectorAll('.vtab').forEach((t) => t.addEventListener('click', () => {
+      playDiagram(document.querySelector('.vpanel[data-v="' + t.dataset.v + '"]'));
+    }));
+    const firstPanel = document.querySelector('.vpanel.is-active');
+    const diagramIo = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { playDiagram(e.target); diagramIo.disconnect(); } });
+    }, { threshold: 0.35 });
+    if (firstPanel) diagramIo.observe(firstPanel);
+
+
+    // ---------- scroll layer ----------
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
+    // route rail: one stop per section, a bus that follows the reading progress
+    const rail = document.querySelector('.route-rail');
+    const rrStops = rail.querySelector('.rr-stops');
+    const rrBus = rail.querySelector('.rr-bus');
+    const rrFill = rail.querySelector('.rr-fill');
+    const stops = links.map((a) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<a href="' + a.getAttribute('href') + '" aria-label="' + a.textContent + '"></a><span>' + a.textContent + '</span>';
+      rrStops.appendChild(li);
+      return { sec: document.querySelector(a.getAttribute('href')), li: li, t: 0 };
+    });
+    let railH = 0;
+    function layoutRail() {
+      railH = rail.clientHeight;
+      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      stops.forEach((st) => {
+        st.t = clamp01((st.sec.offsetTop - window.innerHeight * 0.3) / max);
+        st.li.style.top = (st.t * 100).toFixed(2) + '%';
+      });
+    }
+
+    // staggered children
+    const stgIo = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        const kids = Array.from(e.target.children);
+        kids.forEach((k, i) => k.style.setProperty('--i', Math.min(i, 18)));
+        e.target.classList.add('stg-in');
+        setTimeout(() => e.target.classList.add('stg-done'), Math.min(kids.length, 18) * 55 + 800);
+        stgIo.unobserve(e.target);
+      });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('[data-stagger]').forEach((el) => stgIo.observe(el));
+
+    // word-by-word paragraphs
+    const scrubs = Array.from(document.querySelectorAll('.lead.scrub')).map((p) => {
+      const words = [];
+      (function wrap(node) {
+        Array.from(node.childNodes).forEach((n) => {
+          if (n.nodeType === 3) {
+            const frag = document.createDocumentFragment();
+            n.textContent.split(/(\s+)/).forEach((part) => {
+              if (!part) return;
+              if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+              const w = document.createElement('span');
+              w.className = 'w';
+              w.textContent = part;
+              frag.appendChild(w);
+              words.push(w);
+            });
+            n.replaceWith(frag);
+          } else if (n.nodeType === 1) {
+            wrap(n);
+          }
+        });
+      })(p);
+      return { p: p, words: words, lit: 0 };
+    });
+
+    // network dots pop in sequence
+    Object.keys(markers).forEach((code, i) => {
+      const el = markers[code].getElement && markers[code].getElement();
+      if (el) el.style.transitionDelay = (300 + i * 45) + 'ms';
+    });
+
+    const tiltEl = document.querySelector('.scrolly-tilt');
+    const phoneEl = document.querySelector('.scrolly-phone');
+    const letters = Array.from(document.querySelectorAll('.need .letter'));
+    const tickerSkew = document.querySelector('.ticker-skew');
+    let lastY = window.scrollY, skew = 0, skewRaf = 0, fxTicking = false;
+
+    function decaySkew() {
+      skew *= 0.86;
+      if (Math.abs(skew) < 0.05) { skew = 0; tickerSkew.style.transform = ''; skewRaf = 0; return; }
+      tickerSkew.style.transform = 'skewX(' + skew.toFixed(2) + 'deg)';
+      skewRaf = requestAnimationFrame(decaySkew);
+    }
+
+    function scrollFx() {
+      fxTicking = false;
+      const y = window.scrollY, vh = window.innerHeight;
+      const max = Math.max(1, document.documentElement.scrollHeight - vh);
+      const p = clamp01(y / max);
+
+      rail.classList.toggle('is-on', y > hero.offsetHeight * 0.95);
+      rrBus.style.transform = 'translateY(' + (p * railH).toFixed(1) + 'px)';
+      rrFill.style.transform = 'scaleY(' + p.toFixed(4) + ')';
+      stops.forEach((st) => st.li.classList.toggle('on', p + 0.002 >= st.t));
+
+      if (!reduce) {
+        scrubs.forEach((sc) => {
+          const r = sc.p.getBoundingClientRect();
+          const k = Math.round(clamp01((vh * 0.88 - r.top) / (vh * 0.5 + r.height * 0.4)) * sc.words.length);
+          if (k !== sc.lit) {
+            const lo = Math.min(k, sc.lit), hi = Math.max(k, sc.lit);
+            for (let i = lo; i < hi; i++) sc.words[i].classList.toggle('on', i < k);
+            sc.lit = k;
+          }
+        });
+
+        if (tiltEl) {
+          const r = tiltEl.getBoundingClientRect();
+          const t = clamp01((vh - r.top) / (vh * 0.75));
+          tiltEl.style.transform = 'perspective(1600px) rotateX(' + ((1 - t) * 16).toFixed(2) + 'deg) scale(' + (0.88 + 0.12 * t).toFixed(4) + ')';
+          tiltEl.style.opacity = (0.35 + 0.65 * t).toFixed(3);
+        }
+        if (phoneEl) {
+          const r = phoneEl.getBoundingClientRect();
+          const t = clamp01((vh - r.top) / (vh * 0.7));
+          phoneEl.style.transform = 'translateY(' + ((1 - t) * 80).toFixed(1) + 'px) rotate(' + ((1 - t) * -7).toFixed(2) + 'deg)';
+          phoneEl.style.opacity = (0.3 + 0.7 * t).toFixed(3);
+        }
+        letters.forEach((el) => {
+          const r = el.parentElement.getBoundingClientRect();
+          const c = (r.top + r.height / 2 - vh / 2) / vh;
+          el.style.transform = 'translateY(' + (c * -60).toFixed(1) + 'px)';
+        });
+
+        const v = y - lastY;
+        skew = Math.max(-9, Math.min(9, skew + v * 0.05));
+        if (!skewRaf && Math.abs(skew) > 0.05) skewRaf = requestAnimationFrame(decaySkew);
+      }
+      lastY = y;
+    }
+
+    function queueFx() { if (!fxTicking) { fxTicking = true; requestAnimationFrame(scrollFx); } }
+    window.addEventListener('scroll', queueFx, { passive: true });
+    window.addEventListener('resize', () => { layoutRail(); queueFx(); });
+    window.addEventListener('load', () => { layoutRail(); queueFx(); });
+    layoutRail();
+    if (reduce) scrubs.forEach((sc) => sc.words.forEach((w) => w.classList.add('on')));
+    scrollFx();
+
+    // ---------- count-up ----------
+    const counters = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        counters.unobserve(e.target);
+        const el = e.target, to = +el.dataset.count;
+        if (reduce) { el.textContent = to; return; }
+        const t0 = performance.now(), dur = 1200;
+        (function step(t) {
+          const p = Math.min(1, (t - t0) / dur), k = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(to * k);
+          if (p < 1) requestAnimationFrame(step);
+        })(t0);
+      });
+    }, { threshold: 0.6 });
+    document.querySelectorAll('[data-count]').forEach((el) => counters.observe(el));
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Secrets and local deployment state
+.env*
+.vercel/
+
+# Cordova build output (regenerated with `npm run sync` / cordova)
+mobile/www/
+mobile/platforms/
+mobile/plugins/
+node_modules/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

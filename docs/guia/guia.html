@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Guía de demostración · Hush Buses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --bg: #0E0A12; --panel: #19121F; --panel-2: #1E1625; --line: rgba(251,239,247,.12);
+    --cream: #FBEFF7; --ink: rgba(251,239,247,.86); --muted: rgba(251,239,247,.58);
+    --accent: #FF2D9B; --pink: #F7A8E0; --lav: #B98CF0; --teal: #36D6B0; --amber: #E9B44C;
+    --display: 'Oswald', Impact, sans-serif; --ui: 'Barlow Condensed', sans-serif; --body: 'Barlow', sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 400 10.5pt/1.5 var(--body); }
+  .page { position: relative; width: 210mm; height: 297mm; padding: 16mm 15mm 18mm; overflow: hidden; page-break-after: always; break-after: page; background: var(--bg); }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(70% 40% at 100% 0%, rgba(255,45,155,.13), transparent 70%), radial-gradient(60% 35% at 0% 100%, rgba(185,140,240,.10), transparent 70%); }
+  .page > * { position: relative; }
+  .corner { position: absolute; width: 10mm; height: 10mm; border: 0 solid var(--accent); }
+  .c1 { left: 7mm; top: 7mm; border-left-width: .6mm; border-top-width: .6mm; }
+  .c2 { right: 7mm; top: 7mm; border-right-width: .6mm; border-top-width: .6mm; }
+  .c3 { left: 7mm; bottom: 7mm; border-left-width: .6mm; border-bottom-width: .6mm; }
+  .c4 { right: 7mm; bottom: 7mm; border-right-width: .6mm; border-bottom-width: .6mm; }
+  .folio { position: absolute; left: 15mm; right: 15mm; bottom: 9mm; display: flex; justify-content: space-between; font: 600 7.5pt/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+  .folio b { color: var(--accent); }
+
+  h1, h2, h3, h4 { margin: 0; font-family: var(--display); text-transform: uppercase; color: var(--cream); letter-spacing: .01em; }
+  h2 { font-size: 30pt; line-height: .95; }
+  h2 .acc, h1 .acc { color: var(--accent); }
+  h3 { font-size: 14pt; line-height: 1.1; margin: 0 0 2mm; }
+  h4 { font-size: 10.5pt; letter-spacing: .04em; margin: 0 0 1.5mm; }
+  p { margin: 0 0 2.5mm; }
+  .kicker { display: flex; align-items: center; gap: 3mm; font: 600 8pt/1 var(--ui); letter-spacing: .3em; text-transform: uppercase; color: var(--muted); margin-bottom: 4mm; }
+  .kicker b { color: var(--accent); }
+  .kicker::after { content: ""; height: .3mm; width: 22mm; background: var(--line); }
+  .lead { font-size: 11.5pt; color: var(--ink); max-width: 160mm; margin: 4mm 0 6mm; }
+  strong { color: var(--cream); font-weight: 600; }
+  code { font-family: Consolas, 'Cascadia Code', monospace; font-size: 8.6pt; color: var(--pink); background: rgba(255,45,155,.08); padding: .2mm 1.2mm; border-radius: 1mm; }
+
+  /* cover */
+  .cover { padding: 0; }
+  .cover .cover-shot { position: absolute; inset: 0 0 auto 0; height: 168mm; background: url(img/01-hero.jpeg) center 30%/cover; }
+  .cover .cover-shot::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,10,18,.1), rgba(14,10,18,.45) 45%, rgba(14,10,18,.92) 68%, var(--bg)); }
+  .cover .body { position: absolute; left: 16mm; right: 16mm; top: 120mm; }
+  .cover .badge { display: inline-flex; align-items: center; gap: 3mm; padding: 2mm 4mm 2mm 2mm; border-radius: 99mm; background: rgba(14,10,18,.8); border: .3mm solid rgba(255,45,155,.6); font: 600 8.5pt/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--cream); }
+  .cover .badge img { width: 9mm; height: 9mm; border-radius: 50%; box-shadow: 0 0 0 .5mm var(--accent); }
+  .cover h1 { font-size: 40pt; line-height: .9; margin: 6mm 0 4mm; }
+  .cover .sub { font-size: 12.5pt; color: var(--ink); max-width: 150mm; }
+  .cover .slogan { margin-top: 5mm; font: italic 500 13pt/1.3 var(--body); color: var(--pink); }
+  .cover .meta { position: absolute; left: 16mm; right: 16mm; bottom: 16mm; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6mm; padding-top: 5mm; border-top: .3mm solid var(--line); }
+  .cover .meta h4 { font: 600 7.5pt/1 var(--ui); letter-spacing: .22em; color: var(--pink); margin-bottom: 2.5mm; }
+  .cover .meta p { margin: 0 0 1mm; font-size: 9.5pt; color: var(--cream); }
+  .url { font: 700 13pt/1 var(--display); color: var(--accent) !important; letter-spacing: .02em; }
+
+  /* blocks */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .card { background: var(--panel); border: .3mm solid var(--line); border-radius: 3.5mm; padding: 4.5mm; }
+  .card.acc { border-color: rgba(255,45,155,.45); background: linear-gradient(160deg, rgba(255,45,155,.10), transparent 60%), var(--panel); }
+  .card p { font-size: 9.6pt; }
+  ul.check { list-style: none; margin: 0; padding: 0; }
+  ul.check li { position: relative; padding: 1.4mm 0 1.4mm 6mm; border-top: .25mm solid var(--line); font-size: 9.6pt; }
+  ul.check li:first-child { border-top: 0; }
+  ul.check li::before { content: ""; position: absolute; left: 0; top: 2.9mm; width: 2.2mm; height: 2.2mm; border-radius: 50%; border: .5mm solid var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  th { text-align: left; font: 600 7.5pt/1.2 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); padding: 2mm 2.5mm; border-bottom: .3mm solid var(--line-2, rgba(251,239,247,.2)); }
+  td { padding: 2mm 2.5mm; border-bottom: .25mm solid var(--line); vertical-align: top; }
+  td.t { font: 700 10pt/1.2 var(--display); color: var(--accent); white-space: nowrap; }
+  td.s { font: 600 9.5pt/1.25 var(--ui); text-transform: uppercase; letter-spacing: .03em; color: var(--cream); }
+  .chip { display: inline-block; padding: .6mm 2mm; border-radius: 1.2mm; font: 700 7pt/1.3 var(--ui); letter-spacing: .12em; text-transform: uppercase; background: rgba(255,45,155,.16); color: var(--pink); margin: 0 1mm .8mm 0; }
+  .chip.t { background: rgba(54,214,176,.14); color: var(--teal); }
+  .chip.l { background: rgba(185,140,240,.16); color: var(--lav); }
+
+  /* steps */
+  .step { margin-bottom: 6mm; }
+  .step-head { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 3mm; }
+  .num { font: 700 26pt/1 var(--display); color: var(--accent); }
+  .step-head h3 { margin: 0; font-size: 16pt; }
+  .step-head .when { margin-left: auto; font: 600 8pt/1 var(--ui); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+  .shot { border-radius: 3mm; overflow: hidden; border: .3mm solid rgba(255,45,155,.35); box-shadow: 0 3mm 8mm rgba(0,0,0,.45); }
+  .shot img { display: block; width: 100%; }
+  .shot.crop img { height: 64mm; object-fit: cover; object-position: top left; }
+  .two { display: grid; grid-template-columns: 1.55fr 1fr; gap: 5mm; align-items: start; }
+  .do { margin-top: 3mm; display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .do .card { padding: 3.5mm 4mm; }
+  .do h4 { font-size: 8.5pt; letter-spacing: .18em; color: var(--pink); font-family: var(--ui); }
+  .say { font: italic 500 9.6pt/1.45 var(--body); color: var(--cream); }
+  .say::before { content: "“"; color: var(--accent); font: 700 16pt/0 var(--display); margin-right: 1mm; vertical-align: -2.5mm; }
+  ol.mini { margin: 0; padding-left: 4.5mm; font-size: 9.3pt; }
+  ol.mini li { margin-bottom: 1mm; }
+  .phones { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .phones .shot img { height: 150mm; object-fit: cover; object-position: top; }
+  .note { font-size: 8.6pt; color: var(--muted); }
+  pre { margin: 0; padding: 3.5mm 4mm; border-radius: 2.5mm; background: #110C15; border: .3mm solid var(--line); font: 8.4pt/1.55 Consolas, monospace; color: var(--cream); white-space: pre-wrap; }
+  pre .c { color: rgba(251,239,247,.45); } pre .k { color: var(--accent); }
+  .arch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 3mm 0 4mm; }
+  .arch .card { padding: 3.5mm; text-align: center; }
+  .arch .card b { display: block; font: 700 11pt/1.1 var(--display); text-transform: uppercase; color: var(--cream); margin-bottom: 1mm; }
+  .arch .card span { font-size: 8.4pt; color: var(--muted); }
+  .flow { display: flex; align-items: center; justify-content: center; gap: 2mm; font: 600 8pt/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5mm; }
+  .flow i { color: var(--accent); font-style: normal; }
+  .dense td { padding: 1.3mm 2mm; font-size: 8.6pt; }
+  .dense .card { padding: 3.2mm 3.6mm; }
+  .dense .card p { font-size: 8.7pt; margin: 0; }
+  .dense .grid3 { gap: 3mm; }
+  .dense .card h3 { font-size: 12.5pt; }
+  .dense .flow { margin-bottom: 3.5mm; }
+  .bus3d { display: flex; gap: 5mm; align-items: center; }
+  .bus3d img { width: 32mm; height: 32mm; background: radial-gradient(circle, rgba(255,45,155,.25), transparent 70%); border-radius: 3mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ PORTADA -->
+<section class="page cover">
+  <div class="cover-shot"></div>
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="body">
+    <span class="badge"><img src="../../assets/media/hush-icon.webp" alt="">Hush · Guía de demostración</span>
+    <h1>Guía de<br>demostración <span class="acc">Hush Buses.</span></h1>
+    <p class="sub">Guía paso a paso para presentar <strong>Hush Buses</strong>: el sistema de información geográfica (PostGIS + OpenStreetMap + Cordova) para una empresa de transporte intermunicipal de Cundinamarca.</p>
+    <p class="slogan">“Reescribe las reglas del campo de batalla.”</p>
+  </div>
+  <div class="meta">
+    <div>
+      <h4>Página en vivo</h4>
+      <p class="url">hushbusapp.vercel.app</p>
+      <p class="note">Sistema: hushbusapp.vercel.app/app/</p>
+    </div>
+    <div>
+      <h4>Desarrolladores</h4>
+      <p>Andres Camilo Aldana Cantor</p>
+      <p>David Alejandro Castro Peña</p>
+      <p>Alejandro Agudelo Quintero</p>
+    </div>
+    <div>
+      <h4>Taller 2</h4>
+      <p>Geocodificación y uso de mapas dinámicos</p>
+      <p class="note">Prof. Carlos Armando López Solano, MSc.</p>
+      <p class="note">Octubre de 2026</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ PREPARACIÓN -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>00</b> Antes de empezar</div>
+  <h2>Prepara el <span class="acc">escenario.</span></h2>
+  <p class="lead">La demostración dura <strong>12–15 minutos</strong>. Todo corre en la nube: la página en Vercel y la base de datos PostGIS en Supabase. Solo se necesita un navegador y conexión a internet.</p>
+
+  <div class="grid2">
+    <div class="card acc">
+      <h3>Lista de verificación</h3>
+      <ul class="check">
+        <li>Abrir <code>hushbusapp.vercel.app</code> en Chrome o Edge (pantalla completa, zoom 100 %).</li>
+        <li>Abrir una segunda pestaña con <code>hushbusapp.vercel.app/app/</code>.</li>
+        <li>En el sistema, pulsar <strong>Regenerar datos</strong> (ícono ↺ arriba a la derecha) para que los horarios queden relativos a la hora actual.</li>
+        <li>Confirmar el indicador verde <strong>EN VIVO</strong> junto al reloj.</li>
+        <li>Tener a mano un celular (o el modo móvil del navegador) para la parte de Cordova.</li>
+        <li>Activar el sonido no es necesario: el video del inicio no tiene audio.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Accesos</h3>
+      <table>
+        <tr><th>Recurso</th><th>Dirección</th></tr>
+        <tr><td class="s">Página</td><td><code>hushbusapp.vercel.app</code></td></tr>
+        <tr><td class="s">Sistema</td><td><code>/app/index.html</code></td></tr>
+        <tr><td class="s">Base de datos</td><td>Supabase · proyecto <code>chamber-geoapp</code> · us-east-1</td></tr>
+        <tr><td class="s">Código</td><td>Carpeta <code>Taller2/</code> (landing, app, database, mobile, docs)</td></tr>
+      </table>
+      <p class="note" style="margin-top:3mm">Los datos son de demostración: 21 terminales reales del taller, 30 buses, 24 conductores y la operación del día generada respecto a la hora actual.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:7mm">Guion en una mirada</h3>
+  <table>
+    <tr><th>Min</th><th>Sección</th><th>Qué demuestra</th><th>Requisitos</th></tr>
+    <tr><td class="t">0:00</td><td class="s">Inicio (hero)</td><td>La propuesta: cada bus, cada cupo, cada puesto en el mapa.</td><td><span class="chip l">Presentación</span></td></tr>
+    <tr><td class="t">1:00</td><td class="s">El reto y la red</td><td>Las 3 preguntas, los 21 parqueaderos y el límite de Cundinamarca.</td><td><span class="chip">R1</span><span class="chip">R4</span></td></tr>
+    <tr><td class="t">3:00</td><td class="s">Vistas 4+1</td><td>Escenarios, lógica, procesos, desarrollo y física.</td><td><span class="chip">R2</span></td></tr>
+    <tr><td class="t">5:00</td><td class="s">Base de datos</td><td>9 tablas PostGIS y reglas dentro de la base.</td><td><span class="chip">R3</span></td></tr>
+    <tr><td class="t">6:00</td><td class="s">Terminales</td><td>Cupos libres, buses parqueados, salidas, conductores.</td><td><span class="chip">R8</span><span class="chip t">a</span></td></tr>
+    <tr><td class="t">7:30</td><td class="s">Geocodificación</td><td>Buscar un lugar y la terminal más cercana (KNN).</td><td><span class="chip">R10</span></td></tr>
+    <tr><td class="t">8:30</td><td class="s">Registrar</td><td>Llegadas, salidas y viajes con reglas que rechazan errores.</td><td><span class="chip">R5</span><span class="chip">R6</span><span class="chip">R7</span></td></tr>
+    <tr><td class="t">10:00</td><td class="s">Puestos y conductores</td><td>Mapa de puestos por bus y horarios de servicio.</td><td><span class="chip t">c</span><span class="chip">R8</span></td></tr>
+    <tr><td class="t">11:00</td><td class="s">En vivo</td><td>Bus 3D recorriendo la vía real con reloj acelerado.</td><td><span class="chip t">b</span></td></tr>
+    <tr><td class="t">12:30</td><td class="s">App móvil</td><td>El mismo sistema empaquetado con Cordova.</td><td><span class="chip">R9</span></td></tr>
+  </table>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>02</span></div>
+</section>
+
+<!-- ============================================================ PASOS 1-2 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>01</b> Recorrido por la página</div>
+
+  <div class="step">
+    <div class="step-head"><span class="num">01</span><h3>El inicio: la propuesta</h3><span class="when">0:00 · 1 min</span></div>
+    <div class="shot crop"><img src="img/01-hero.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Dejar correr la animación de entrada (≈2 s).</li><li>Señalar el bus del video sobre el eje central de la autopista.</li><li>Bajar con la rueda: el texto se desvanece y aparece la franja de municipios.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Una empresa intermunicipal necesita saber tres cosas: dónde hay cupo, dónde están sus buses y cuántos puestos le quedan a cada uno. Todo eso lo resolvemos sobre un solo mapa.</p></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="num">02</span><h3>La red: 21 terminales, una frontera</h3><span class="when">1:00 · 2 min</span></div>
+    <div class="shot crop"><img src="img/03-mapa-red.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>En “El reto”, mostrar las tarjetas a, b, c y la tabla de requisitos R1–R10.</li><li>En “La red”, pasar el mouse por la tabla: se resalta el parqueadero en el mapa.</li><li>Mostrar las líneas que fluyen desde Bogotá y el área oscurecida fuera del departamento.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Estos son exactamente los 21 parqueaderos del enunciado. Lo que está fuera de Cundinamarca y Bogotá aparece oscurecido: la base de datos ni siquiera permite registrar una terminal por fuera de esa línea.</p></div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>03</span></div>
+</section>
+
+<!-- ============================================================ PASOS 3-4 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="step">
+    <div class="step-head"><span class="num">03</span><h3>Arquitectura · modelo 4+1</h3><span class="when">3:00 · 2 min</span></div>
+    <div class="grid2">
+      <div class="shot"><img src="img/04-vista-logica.jpeg" alt=""></div>
+      <div class="shot"><img src="img/05-vista-procesos.jpeg" alt=""></div>
+    </div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Recorrer las pestañas <strong>+1 Escenarios → Lógica → Procesos → Desarrollo → Física</strong>; cada diagrama se dibuja al abrirse.</li><li>En Procesos, seguir los 10 mensajes del registro de una llegada.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">El caso “registrar llegada” atraviesa todas las vistas: es la clase ParkingStay, una transacción con bloqueo de fila, la función api_register_arrival y una llamada HTTPS desde el celular a Supabase.</p></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="num">04</span><h3>Base de datos PostGIS</h3><span class="when">5:00 · 1 min</span></div>
+    <div class="shot crop"><img src="img/06-base-datos.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Señalar las tablas con etiqueta <span class="chip">GIS</span> (geometrías SRID 4326).</li><li>Bajar a las 4 reglas con su código SQL: límites, capacidad, KNN y posición estimada.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Las reglas viven dentro de la base: ningún cliente, ni la web ni el celular, puede meter un bus en una terminal llena o crear una terminal fuera del departamento.</p></div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>04</span></div>
+</section>
+
+<!-- ============================================================ PASOS 5-6 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>02</b> El sistema en vivo</div>
+  <div class="step">
+    <div class="step-head"><span class="num">05</span><h3>Terminales: cupos, salidas y conductores</h3><span class="when">6:00 · 1.5 min</span></div>
+    <div class="shot crop"><img src="img/08-terminal.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Explicar los anillos: <strong style="color:var(--teal)">verde</strong> hay cupo, <strong style="color:var(--amber)">ámbar</strong> llenándose, <strong style="color:var(--accent)">magenta</strong> lleno; el número es cupos libres.</li><li>Abrir <strong>Bogotá D.C.</strong>: buses parqueados, permanencia, próxima salida, puestos libres, conductor.</li><li>Bajar a “Salidas”, “Llegando” y “Horarios de servicio de conductores”.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Esto responde lo que pide el taller para el mapa: ubicación de cada parqueadero, cupos disponibles, horas de salida de los buses parqueados y horarios de los conductores.</p></div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-head"><span class="num">06</span><h3>Geocodificación y terminal más cercana</h3><span class="when">7:30 · 1 min</span></div>
+    <div class="shot crop"><img src="img/09-geocodificacion.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Escribir <strong>Zipaquirá</strong> en el buscador y elegir el primer resultado.</li><li>Leer el sello “Dentro de Cundinamarca” y las 3 terminales más cercanas con distancia.</li><li>Opcional: botón ⌖ para usar la ubicación del dispositivo.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Nominatim de OpenStreetMap convierte el nombre en coordenadas; PostGIS verifica que esté dentro del departamento y ordena las terminales por distancia con el índice espacial.</p></div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>05</span></div>
+</section>
+
+<!-- ============================================================ PASO 7 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="step">
+    <div class="step-head"><span class="num">07</span><h3>Registrar llegadas, salidas y viajes</h3><span class="when">8:30 · 1.5 min</span></div>
+    <div class="grid2">
+      <div class="shot"><img src="img/11-registro-salida.jpeg" alt=""></div>
+      <div class="shot"><img src="img/10-registro-regla.jpeg" alt=""></div>
+    </div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini">
+        <li><strong>Salida:</strong> Registrar → Salida → Bogotá D.C. → elegir el bus y su viaje → <em>Registrar salida</em>. El bus pasa a “en ruta”.</li>
+        <li><strong>Regla:</strong> Llegada → un parqueadero lleno (0 libres) y un bus que va hacia otro destino. El formulario avisa y la base rechaza: <em>“El viaje #… se dirige a otro parqueadero”</em>.</li>
+        <li><strong>Nuevo viaje:</strong> origen, destino, salida, llegada (se estima sola por distancia) y permanencia.</li>
+      </ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">El administrador del parqueadero registra las llegadas y salidas con los datos que pide el taller: origen, destino, hora de salida, hora de llegada y tiempo de permanencia. Si algo viola una regla, la propia base de datos lo rechaza con un mensaje claro.</p>
+      <p class="note">Reglas visibles: capacidad, viaje hacia otro destino, bus ya parqueado, horas en el futuro, viajes traslapados, administrador de otro parqueadero.</p></div>
+    </div>
+  </div>
+  <div class="card acc" style="margin-top:2mm">
+    <h4>Tip de presentación</h4>
+    <p>Después de registrar una salida, vuelve a <strong>Terminales</strong>: el anillo del parqueadero gana un cupo y el bus aparece en el mapa como bus 3D en ruta. Si se quiere repetir la demo desde cero, pulsa <strong>Regenerar datos</strong>.</p>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>06</span></div>
+</section>
+
+<!-- ============================================================ PASOS 8-9 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="step">
+    <div class="step-head"><span class="num">08</span><h3>Puestos por bus</h3><span class="when">10:00 · 45 s</span></div>
+    <div class="shot crop"><img src="img/12-puestos.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Elegir un viaje próximo en el selector.</li><li>Mostrar disponibles / vendidos / ocupación y el mapa 2+2 del bus.</li><li>Tocar un puesto verde → nombre opcional → <em>Vender puesto</em>.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Cada tiquete es un puesto de un viaje. La base impide vender un puesto dos veces, un puesto que no existe o vender después de la salida.</p></div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-head"><span class="num">09</span><h3>Horarios de conductores</h3><span class="when">10:45 · 30 s</span></div>
+    <div class="shot crop"><img src="img/13-conductores.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Mostrar la línea <strong>AHORA</strong>, los turnos (verde) y los viajes asignados (magenta).</li><li>Filtrar por terminal base.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">Los turnos no se cruzan ni superan 12 horas, y un conductor no puede tener dos viajes al mismo tiempo.</p></div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>07</span></div>
+</section>
+
+<!-- ============================================================ PASO 10 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>03</b> El momento wow</div>
+  <div class="step">
+    <div class="step-head"><span class="num">10</span><h3>Recorrido en vivo con bus 3D</h3><span class="when">11:00 · 1.5 min</span></div>
+    <div class="shot"><img src="img/14-en-vivo.jpeg" alt=""></div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini">
+        <li>Pulsar el botón <strong>● EN VIVO · N EN RUTA</strong> (arriba a la izquierda del mapa).</li>
+        <li>La cámara vuela hasta el bus y lo sigue; el panel muestra km recorridos, velocidad promedio y llegada.</li>
+        <li>Subir la velocidad a <strong>×120</strong> o <strong>×600</strong> para ver el bus girar con las curvas.</li>
+        <li>Usar ‹ › para pasar a otro bus en ruta; ✕ para cerrar.</li>
+      </ol></div>
+      <div class="card">
+        <div class="bus3d"><img src="img/bus3d.png" alt=""><p class="say" style="margin:0">El taller no exige GPS en tiempo real: ubicamos el bus en su vía real según la hora de salida y la de llegada. La velocidad ×600 es solo visual; los datos no cambian.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>08</span></div>
+</section>
+
+<!-- ============================================================ PASO 11 MÓVIL -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="step">
+    <div class="step-head"><span class="num">11</span><h3>App móvil con Cordova</h3><span class="when">12:30 · 1 min</span></div>
+    <div class="phones">
+      <div class="shot"><img src="img/15-movil.jpeg" alt=""></div>
+      <div class="shot"><img src="img/16-movil-en-vivo.jpeg" alt=""></div>
+    </div>
+    <div class="do">
+      <div class="card"><h4>Qué hacer</h4><ol class="mini"><li>Abrir la página en el celular o en modo móvil del navegador (F12 → dispositivo).</li><li>Mostrar la navegación inferior y el panel deslizable.</li><li>Activar “En vivo”: el panel se compacta y la hoja inferior se aparta.</li></ol></div>
+      <div class="card"><h4>Qué decir</h4><p class="say">La app Cordova empaqueta exactamente el mismo código del sistema web y agrega el GPS del dispositivo para encontrar la terminal más cercana.</p></div>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>09</span></div>
+</section>
+
+<!-- ============================================================ TÉCNICO 1 -->
+<section class="page dense">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>04</b> Detalles técnicos</div>
+  <h2 style="font-size:26pt">Bajo el <span class="acc">capó.</span></h2>
+  <div class="arch">
+    <div class="card"><b>Clientes</b><span>Página + sistema web (HTML/CSS/JS) · App Cordova</span></div>
+    <div class="card acc"><b>Supabase</b><span>PostgREST · RLS · funciones <code>api_*</code></span></div>
+    <div class="card acc"><b>PostgreSQL 17</b><span>PostGIS 3 · PL/pgSQL · triggers</span></div>
+    <div class="card"><b>OpenStreetMap</b><span>Mosaicos · Nominatim · OSRM</span></div>
+  </div>
+  <div class="flow">Celular / navegador <i>→</i> HTTPS + JSON <i>→</i> PostgREST <i>→</i> api_* (una transacción) <i>→</i> reglas y triggers <i>→</i> tablas PostGIS</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Tecnologías</h3>
+      <table>
+        <tr><td class="s">Mapa</td><td>Leaflet 1.9.4 + mosaicos OpenStreetMap (filtro nocturno ciruela)</td></tr>
+        <tr><td class="s">Datos</td><td>supabase-js 2.45 → PostgREST · llave pública</td></tr>
+        <tr><td class="s">Geocodificación</td><td>Nominatim (directa e inversa), sesgada a Cundinamarca</td></tr>
+        <tr><td class="s">Rutas</td><td>OSRM (router.project-osrm.org) · vía real</td></tr>
+        <tr><td class="s">3D</td><td>Three.js 0.149 · cámara ortográfica, render a canvas por marcador</td></tr>
+        <tr><td class="s">Íconos</td><td>Phosphor Icons 2.1</td></tr>
+        <tr><td class="s">Móvil</td><td>Apache Cordova 13 · Android 7+ · geolocalización</td></tr>
+        <tr><td class="s">Hosting</td><td>Vercel (estático) · proyecto <code>hushbusapp</code></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Base de datos (SRID 4326)</h3>
+      <table>
+        <tr><td class="s">service_area</td><td>Polígonos de Cundinamarca y Bogotá (OSM)</td></tr>
+        <tr><td class="s">parking_lot</td><td>21 terminales · capacidad · Point + GiST</td></tr>
+        <tr><td class="s">bus</td><td>30 buses · placa · capacidad de puestos</td></tr>
+        <tr><td class="s">trip</td><td>Origen, destino, salida, llegada, permanencia, estado</td></tr>
+        <tr><td class="s">parking_stay</td><td>Llegada + salida = permanencia real y ubicación</td></tr>
+        <tr><td class="s">ticket</td><td>Puesto vendido (único por viaje)</td></tr>
+        <tr><td class="s">driver · driver_shift</td><td>Conductores y turnos ≤ 12 h</td></tr>
+        <tr><td class="s">app_user</td><td>Administradores por parqueadero</td></tr>
+      </table>
+      <p class="note" style="margin-top:2mm">Vistas: v_parking_availability, v_bus_location, v_trip_detail, v_parked_buses, v_driver_schedule, v_stay_history.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:4mm">Reglas que garantiza la base</h3>
+  <div class="grid3">
+    <div class="card"><h4>Límites</h4><p>Trigger con <code>ST_Covers</code>: ninguna terminal fuera de Cundinamarca.</p></div>
+    <div class="card"><h4>Capacidad</h4><p><code>SELECT … FOR UPDATE</code> sobre el parqueadero antes de contar: sin sobrecupo, ni con dos administradores a la vez.</p></div>
+    <div class="card"><h4>Un lugar por bus</h4><p>Índice único parcial: solo una estadía abierta por bus.</p></div>
+    <div class="card"><h4>Traslapes</h4><p><code>tstzrange &amp;&amp;</code>: un bus o conductor no tiene dos viajes al tiempo.</p></div>
+    <div class="card"><h4>Puestos</h4><p>Puesto único por viaje, debe existir en el bus y solo antes de la salida.</p></div>
+    <div class="card"><h4>Permisos</h4><p>Solo el administrador del parqueadero registra sus llegadas y salidas.</p></div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>10</span></div>
+</section>
+
+<!-- ============================================================ TÉCNICO 2 -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="grid2">
+    <div class="card">
+      <h3>API (RPC de Supabase)</h3>
+      <table>
+        <tr><th>Función</th><th>Uso</th></tr>
+        <tr><td><code>api_overview()</code></td><td>Todo el mapa en una petición (cada 30 s)</td></tr>
+        <tr><td><code>api_lot_detail(id)</code></td><td>Panel de una terminal</td></tr>
+        <tr><td><code>api_nearest_lots(lat,lng)</code></td><td>KNN <code>&lt;-&gt;</code> + dentro del área</td></tr>
+        <tr><td><code>api_trip_seats(id)</code></td><td>Mapa de puestos</td></tr>
+        <tr><td><code>api_register_arrival</code></td><td>Llegada (cierra viaje, abre estadía)</td></tr>
+        <tr><td><code>api_register_departure</code></td><td>Salida (cierra estadía, viaje en ruta)</td></tr>
+        <tr><td><code>api_create_trip</code></td><td>Información del bus / viaje</td></tr>
+        <tr><td><code>api_sell_ticket</code></td><td>Venta de puesto</td></tr>
+        <tr><td><code>api_reset_demo()</code></td><td>Regenera la operación de demostración</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Seguridad</h3>
+      <ul class="check">
+        <li><strong>RLS</strong> en las 9 tablas: los clientes solo pueden leer.</li>
+        <li>Toda escritura pasa por funciones <code>api_*</code> (SECURITY DEFINER) que aplican las reglas.</li>
+        <li>Datos personales protegidos: el documento y el teléfono de los conductores no son públicos (permisos por columna).</li>
+        <li>Crear parqueaderos no está expuesto al público.</li>
+        <li>Horas en el futuro rechazadas; nombres recortados a 120 caracteres.</li>
+        <li>Todo texto externo se escapa antes de mostrarse (sin XSS).</li>
+        <li>Nota: al no haber inicio de sesión, cualquiera con la página puede registrar movimientos de demostración. En producción se agregaría Supabase Auth.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card acc" style="margin-top:5mm">
+    <h3>Cómo funciona el recorrido en vivo</h3>
+    <div class="grid2" style="gap:6mm">
+      <ol class="mini">
+        <li>Por cada viaje <strong>EN RUTA</strong> se pide a OSRM la vía real entre origen y destino (si falla, línea recta).</li>
+        <li>Progreso <code>p = (ahora − salida) / (llegada − salida)</code>, limitado entre 0 y 1.</li>
+        <li>Se busca el punto a <code>p × longitud</code> sobre la vía (búsqueda binaria en distancias acumuladas).</li>
+      </ol>
+      <ol class="mini" start="4">
+        <li>El rumbo se calcula 350 m adelante y se suaviza; Three.js re-dibuja el bus solo cuando gira.</li>
+        <li>Un reloj de simulación (×30–×600) adelanta solo la animación.</li>
+        <li>En la base, <code>v_bus_location</code> hace la estimación oficial con <code>ST_LineInterpolatePoint</code>.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 style="margin-top:6mm">Ejecutar y desplegar</h3>
+<pre><span class="c"># Base de datos: en Supabase → SQL Editor, ejecutar en orden</span>
+database/01_schema.sql … 07_hardening.sql
+<span class="c"># Sitio en local</span>
+<span class="k">npx</span> serve .                       <span class="c"># abrir http://localhost:3000</span>
+<span class="c"># Publicar en Vercel (proyecto hushbusapp)</span>
+<span class="k">npx</span> vercel deploy --prod
+<span class="c"># App móvil</span>
+cd mobile &amp;&amp; <span class="k">npm</span> install &amp;&amp; <span class="k">npm</span> run sync &amp;&amp; <span class="k">npx</span> cordova run android</pre>
+  <div class="folio"><span><b>Hush</b> · Guía de demostración</span><span>11</span></div>
+</section>
+
+<!-- ============================================================ PROBLEMAS + CRÉDITOS -->
+<section class="page">
+  <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+  <div class="kicker"><b>05</b> Si algo falla</div>
+  <h2>Solución de <span class="acc">problemas.</span></h2>
+  <table style="margin-top:6mm">
+    <tr><th>Síntoma</th><th>Causa probable</th><th>Qué hacer</th></tr>
+    <tr><td class="s">Indicador “Sin conexión”</td><td>Sin internet o el proyecto de Supabase está pausado (plan gratuito tras 7 días sin uso).</td><td>Revisar la conexión; en supabase.com reanudar el proyecto <code>chamber-geoapp</code>.</td></tr>
+    <tr><td class="s">No hay salidas próximas o “0 en ruta”</td><td>Los horarios de demostración quedaron en el pasado.</td><td>Pulsar <strong>Regenerar datos</strong> (↺).</td></tr>
+    <tr><td class="s">El bus va en línea recta</td><td>OSRM (servidor público) no respondió.</td><td>Esperar unos segundos o recargar; la demo sigue funcionando.</td></tr>
+    <tr><td class="s">El bus se ve plano</td><td>El navegador no tiene WebGL.</td><td>Usar Chrome/Edge actualizados; aparece un ícono 2D de respaldo.</td></tr>
+    <tr><td class="s">La búsqueda no encuentra</td><td>Nominatim limita a lugares dentro de Cundinamarca.</td><td>Probar con municipios: Zipaquirá, Girardot, Fusagasugá.</td></tr>
+    <tr><td class="s">“Rechazado por la base de datos”</td><td>Es una regla funcionando (capacidad, destino, horario…).</td><td>Leer el mensaje: forma parte de la demostración.</td></tr>
+    <tr><td class="s">Mapa descentrado</td><td>Cambio de tamaño de la ventana.</td><td>Botón ↻ o cerrar el panel de la terminal.</td></tr>
+  </table>
+
+  <div class="grid2" style="margin-top:9mm">
+    <div class="card acc">
+      <h3>Desarrolladores de la página</h3>
+      <ul class="check">
+        <li><strong>Andres Camilo Aldana Cantor</strong></li>
+        <li><strong>David Alejandro Castro Peña</strong></li>
+        <li><strong>Alejandro Agudelo Quintero</strong></li>
+      </ul>
+      <p class="note" style="margin-top:3mm">Taller 2 — Geocodificación y uso de mapas dinámicos · Prof. Carlos Armando López Solano, MSc.</p>
+    </div>
+    <div class="card">
+      <h3>Créditos</h3>
+      <p class="note">Datos del mapa © colaboradores de OpenStreetMap (ODbL). Rutas: OSRM. Geocodificación: Nominatim. Video: “Buses and cars in the freeway”, Mixkit. Íconos: Phosphor Icons. Temática, ícono y eslogan de Hush © Riot Games — uso académico. Base de datos: Supabase · PostGIS.</p>
+      <p class="slogan" style="font: italic 500 12pt/1.3 var(--body); color: var(--pink); margin-top:4mm">“Reescribe las reglas del campo de batalla.”</p>
+    </div>
+  </div>
+  <div class="folio"><span><b>Hush</b> · hushbusapp.vercel.app</span><span>12</span></div>
+</section>
+
+</body>
+</html>

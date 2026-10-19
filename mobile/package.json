@@ -1,0 +1,31 @@
+{
+  "name": "co.edu.taller2.cundibus",
+  "displayName": "Hush",
+  "version": "1.0.0",
+  "description": "Cordova mobile app of the Hush information system",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync-www.js",
+    "browser": "npm run sync && cordova run browser",
+    "android": "npm run sync && cordova run android",
+    "build:android": "npm run sync && cordova build android",
+    "build:ios": "npm run sync && cordova build ios"
+  },
+  "devDependencies": {
+    "cordova": "^13.0.0",
+    "cordova-android": "^15.1.0",
+    "cordova-browser": "^7.0.0",
+    "cordova-plugin-geolocation": "^5.0.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android",
+      "browser"
+    ],
+    "plugins": {
+      "cordova-plugin-geolocation": {
+        "GPS_REQUIRED": "false"
+      }
+    }
+  }
+}

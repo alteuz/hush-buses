@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="co.edu.taller2.cundibus" version="1.0.0"
+        xmlns="http://www.w3.org/ns/widgets"
+        xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Hush</name>
+    <description>
+        Parking availability, bus locations, seats per bus and driver schedules
+        for an intermunicipal bus company in Cundinamarca, Colombia.
+    </description>
+    <author href="https://www.openstreetmap.org">Workshop 2 · Geocoding and Use of Dynamic Maps</author>
+
+    <content src="index.html" />
+
+    <!-- Supabase API, OpenStreetMap tiles, Nominatim and CDN assets -->
+    <access origin="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <allow-intent href="geo:*" />
+
+    <preference name="BackgroundColor" value="0xff0e0a12" />
+    <preference name="Orientation" value="portrait" />
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="android-minSdkVersion" value="24" />
+    <preference name="AndroidWindowSplashScreenBackground" value="#0E0A12" />
+
+    <platform name="ios">
+        <edit-config target="NSLocationWhenInUseUsageDescription" file="*-Info.plist" mode="merge">
+            <string>Your location is used to find the nearest bus terminal.</string>
+        </edit-config>
+    </platform>
+</widget>

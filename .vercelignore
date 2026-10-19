@@ -1,0 +1,6 @@
+# Only the static site is published: landing + web system + assets
+/*
+!index.html
+!app
+!assets
+!vercel.json
